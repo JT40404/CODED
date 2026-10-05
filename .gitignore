@@ -1,0 +1,12 @@
+node_modules/
+target/
+.anchor/
+.vercel/
+.env
+.env.*
+!.env.example
+app/data/
+public/coded-launch.js
+# never commit keypairs
+*keypair*.json
+id.json

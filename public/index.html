@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CODED | Program where your creator fees go</title>
+<meta name="description" content="CODED routes your pump.fun creator fees automatically: split with holders, add liquidity, buy back and burn, or send them anywhere you choose.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#E4E9EE; --paper-2:#D6DDE4; --card:#EEF2F5; --ink:#0D1730; --ink-60:rgba(13,23,48,.62); --ink-30:rgba(13,23,48,.3); --ink-15:rgba(13,23,48,.14);
+  --deep:#0A1440; --deep-ink:#E4E9EE; --deep-60:rgba(228,233,238,.6); --deep-15:rgba(228,233,238,.14);
+  --cobalt:#2340FF; --sky:#4FB8F0; --slate:#8792A8; --amber:#FF9F1C;
+  --r-sm:5px; --r-md:10px;
+  --gut:clamp(16px,3vw,40px);
+  --display:"Archivo","Arial Narrow",Arial,sans-serif;
+  --body:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#070D24; --paper-2:#0E1633; --card:#101A3A; --ink:#E4E9EE; --ink-60:rgba(228,233,238,.62); --ink-30:rgba(228,233,238,.3); --ink-15:rgba(228,233,238,.13);
+    --deep:#03081A; --cobalt:#5470FF;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#070D24; --paper-2:#0E1633; --card:#101A3A; --ink:#E4E9EE; --ink-60:rgba(228,233,238,.62); --ink-30:rgba(228,233,238,.3); --ink-15:rgba(228,233,238,.13);
+  --deep:#03081A; --cobalt:#5470FF;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+img,svg,canvas{max-width:100%}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--cobalt);outline-offset:3px;border-radius:4px}
+::selection{background:var(--cobalt);color:#fff}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+
+/* ---------- background grid ---------- */
+.site-grid{position:fixed;inset:0;display:grid;grid-template-columns:repeat(12,1fr);gap:0;padding:0 var(--gut);pointer-events:none;z-index:0}
+.site-grid span{border-left:1px solid var(--ink-15);opacity:.45}
+.site-grid span:last-child{border-right:1px solid var(--ink-15)}
+@media (max-width:767px){.site-grid{grid-template-columns:repeat(4,1fr)}.site-grid span:nth-child(n+5){display:none}}
+
+/* ---------- loader ---------- */
+.loader{position:fixed;inset:0;z-index:100;background:var(--deep);display:grid;place-items:center;transition:transform .8s cubic-bezier(.7,0,.2,1)}
+.loader.done{transform:translateY(-100%)}
+.loader .logo{width:180px;color:var(--deep-ink)}
+.loader .bar{width:180px;height:2px;background:var(--deep-15);margin-top:18px;overflow:hidden}
+.loader .bar i{display:block;height:100%;width:0;background:var(--amber);animation:load .9s ease forwards}
+@keyframes load{to{width:100%}}
+
+/* ---------- nav ---------- */
+.nav{position:fixed;top:0;left:0;right:0;z-index:50;padding:calc(env(safe-area-inset-top,0px) + 14px) var(--gut) 14px;display:flex;justify-content:space-between;align-items:center;pointer-events:none}
+.nav > *{pointer-events:auto}
+.logo{display:block;width:120px;height:auto}
+.nav .logo-link{color:var(--deep-ink);mix-blend-mode:difference}
+.menu-btn{display:flex;align-items:center;gap:10px;background:var(--paper);color:var(--ink);padding:6px 6px 6px 14px;border-radius:var(--r-sm);font-weight:600;font-size:14px;font-stretch:110%}
+.menu-icon{width:30px;height:30px;border-radius:4px;background:var(--cobalt);display:grid;place-content:center;gap:5px}
+.menu-icon i{display:block;width:12px;height:1.5px;background:#fff;transition:transform .35s ease}
+.menu-open .menu-icon i:first-child{transform:translateY(3.25px) rotate(45deg)}
+.menu-open .menu-icon i:last-child{transform:translateY(-3.25px) rotate(-45deg)}
+.menu{position:fixed;z-index:45;top:0;left:0;right:0;background:var(--paper);padding:calc(env(safe-area-inset-top,0px) + 84px) var(--gut) 28px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px;transform:translateY(-102%);transition:transform .6s cubic-bezier(.7,0,.2,1);border-bottom:1px solid var(--ink-15)}
+.menu-open .menu{transform:none}
+.menu ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.menu a{display:flex;align-items:center;gap:12px;padding:10px;border-radius:var(--r-sm);font-family:var(--display);font-stretch:120%;font-weight:600;font-size:clamp(20px,2.2vw,30px);letter-spacing:-.02em;transition:background .2s}
+.menu a:hover,.menu a.active{background:var(--card)}
+.menu a .sq{width:28px;height:28px;flex:none}
+.menu .theme-row{display:flex;gap:4px;padding:10px}
+.menu .theme-row button{padding:6px 12px;border-radius:var(--r-sm);background:var(--card);font-size:14px;font-weight:600}
+.menu .theme-row button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.scrim{position:fixed;inset:0;z-index:44;background:rgba(5,10,30,.4);opacity:0;pointer-events:none;transition:opacity .4s}
+.menu-open .scrim{opacity:1;pointer-events:auto}
+@media (max-width:767px){.menu{grid-template-columns:1fr}}
+
+/* ---------- page transition ---------- */
+.swap{position:fixed;inset:0;z-index:60;background:var(--deep);color:var(--deep-ink);display:flex;align-items:flex-end;padding:var(--gut);transform:translateY(100%);pointer-events:none}
+.swap.in{transition:transform .45s cubic-bezier(.7,0,.2,1);transform:none}
+.swap.out{transition:transform .45s cubic-bezier(.7,0,.2,1);transform:translateY(-100%)}
+.swap span{font-family:var(--display);font-stretch:125%;font-weight:700;font-size:clamp(40px,8vw,120px);letter-spacing:-.04em;line-height:.9}
+
+/* ---------- type ---------- */
+.h1{font-family:var(--display);font-stretch:125%;font-weight:700;font-size:clamp(42px,7.4vw,124px);line-height:.92;letter-spacing:-.045em;margin:0}
+.h1 .ln{display:block;overflow:hidden}
+.h1 .ln > span{display:block;transform:translateY(105%);transition:transform 1s cubic-bezier(.2,.8,.2,1)}
+.ready .h1 .ln > span{transform:none}
+.ready .h1 .ln:nth-child(2) > span{transition-delay:.08s}
+.xl{font-family:var(--body);font-weight:500;font-size:clamp(24px,3vw,44px);line-height:1.1;letter-spacing:-.025em;margin:0;max-width:24ch}
+.l{font-family:var(--display);font-stretch:112%;font-weight:600;font-size:clamp(19px,1.6vw,24px);line-height:1.15;letter-spacing:-.015em;margin:0}
+.m{font-size:clamp(17px,1.3vw,20px);line-height:1.4;margin:0}
+.s{font-size:15px;line-height:1.5;margin:0;color:var(--ink-60);max-width:56ch}
+.mono{font-family:var(--mono)}
+
+/* ---------- layout ---------- */
+main{position:relative;z-index:1}
+.page{display:none}
+.page.on{display:block}
+.wrap{padding:0 var(--gut)}
+.grid12{display:grid;grid-template-columns:repeat(12,1fr);gap:0 12px}
+.intro{display:grid;grid-template-columns:repeat(12,1fr);gap:24px 12px;padding:clamp(80px,10vw,150px) var(--gut) clamp(36px,4vw,60px)}
+.intro .eyebrows{grid-column:1/5}
+.intro .xl{grid-column:5/13}
+@media (max-width:767px){.intro .eyebrows,.intro .xl{grid-column:1/-1}}
+.eyebrows{display:flex;gap:3px;align-items:flex-start}
+.tag{display:inline-block;padding:5px 9px;border-radius:4px;font-size:13px;font-weight:600;line-height:1.2;background:var(--paper-2);color:var(--ink)}
+.tag.ink{background:var(--ink);color:var(--paper)}
+.on-deep .tag{background:var(--deep-15);color:var(--deep-ink)}
+.on-deep .tag.ink{background:var(--deep-ink);color:var(--deep)}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;gap:12px;background:var(--ink);color:var(--paper);padding:6px 6px 6px 16px;border-radius:var(--r-sm);font-weight:600;font-size:15px;font-stretch:108%;transition:background .25s,color .25s}
+.btn .sq{width:30px;height:30px;border-radius:4px;background:var(--cobalt);display:grid;place-items:center;transition:transform .3s}
+.btn .sq svg{width:10px;height:10px;fill:#fff}
+.btn:hover .sq{transform:translateX(3px)}
+.btn.light{background:var(--deep-ink);color:var(--deep)}
+.btn.ghost{background:var(--card);color:var(--ink)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+
+/* ---------- hero ---------- */
+.hero{position:relative;min-height:100vh;min-height:100svh;background:var(--deep);color:var(--deep-ink);overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end}
+.hero canvas{position:absolute;inset:0;width:100%;height:100%}
+.hero-inner{position:relative;display:grid;grid-template-columns:repeat(12,1fr);gap:24px 12px;padding:0 var(--gut) clamp(24px,3vw,40px);align-items:end}
+.hero-left{grid-column:1/9}
+.hero-right{grid-column:9/13;display:flex;flex-direction:column;gap:10px}
+.hero-sub{color:var(--deep-60);font-size:clamp(16px,1.3vw,19px);max-width:38ch;margin:22px 0 0}
+.hero-card{display:flex;justify-content:space-between;align-items:center;gap:12px;background:rgba(228,233,238,.07);border:1px solid var(--deep-15);border-radius:var(--r-md);padding:14px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);transition:background .25s}
+.hero-card:hover{background:rgba(228,233,238,.14)}
+.hero-card b{display:block;font-family:var(--display);font-stretch:115%;font-size:18px;letter-spacing:-.01em}
+.hero-card small{color:var(--deep-60);font-size:13px}
+.hero-card .sq{width:34px;height:34px;flex:none;border-radius:4px;background:var(--amber);display:grid;place-items:center}
+.hero-card .sq svg{width:10px;fill:var(--deep)}
+@media (max-width:900px){.hero-left,.hero-right{grid-column:1/-1}}
+
+/* ---------- about ---------- */
+.about{display:grid;grid-template-columns:repeat(12,1fr);gap:12px;padding:0 var(--gut) clamp(60px,8vw,120px)}
+.term{grid-column:1/6;background:var(--deep);color:var(--deep-ink);border-radius:var(--r-md);padding:18px;font-family:var(--mono);font-size:13px;line-height:1.7;min-height:440px;display:flex;flex-direction:column;overflow:hidden}
+.term-head{display:flex;justify-content:space-between;color:var(--deep-60);border-bottom:1px solid var(--deep-15);padding-bottom:10px;margin-bottom:10px;font-family:var(--body);font-size:13px}
+.term-head i{display:inline-block;width:7px;height:7px;border-radius:50%;background:#3DDC97;margin-right:6px;vertical-align:1px}
+.term-body{flex:1;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden}
+.term-body div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.term .k{color:var(--deep-60)} .term .c1{color:#8EA0FF} .term .c2{color:var(--sky)} .term .c3{color:#B9C1D3} .term .c4{color:var(--amber)}
+.about-right{grid-column:7/13;display:flex;flex-direction:column;justify-content:space-between;gap:40px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--card);border-radius:var(--r-md);padding:16px;display:flex;flex-direction:column;justify-content:space-between;gap:28px;min-height:150px}
+.stat svg{width:30px;height:30px;stroke:var(--cobalt);fill:none;stroke-width:1.5}
+.stat b{display:block;font-family:var(--display);font-stretch:125%;font-weight:700;font-size:clamp(30px,3vw,46px);line-height:.9;letter-spacing:-.04em}
+.stat span{font-size:13px;color:var(--ink-60);display:block;margin-top:6px}
+.about-cta{display:flex;flex-direction:column;gap:22px;align-items:flex-start}
+@media (max-width:900px){.term,.about-right{grid-column:1/-1}.term{min-height:320px}}
+@media (max-width:520px){.stats{grid-template-columns:repeat(2,1fr)}}
+
+/* ---------- modules grid ---------- */
+.mod-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 var(--gut) clamp(60px,8vw,120px)}
+.mod-card{background:var(--card);border-radius:var(--r-md);padding:20px;display:flex;flex-direction:column;justify-content:space-between;gap:56px;min-height:280px;text-align:left;transition:background .3s,color .3s}
+.mod-card svg{width:48px;height:48px;stroke:currentColor;fill:none;stroke-width:1.4;color:var(--cobalt);transition:color .3s}
+.mod-card .s{transition:color .3s}
+.mod-card:hover{background:var(--cobalt);color:#fff}
+.mod-card:hover svg,.mod-card:hover .s{color:rgba(255,255,255,.85)}
+.mod-card.cta{background:var(--deep);color:var(--deep-ink);justify-content:flex-end;align-items:flex-start}
+.mod-card.cta p{color:var(--deep-60)}
+@media (max-width:900px){.mod-grid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.mod-grid{grid-template-columns:1fr}.mod-card{min-height:220px}}
+
+/* ---------- dial ---------- */
+.dial-sec{display:grid;grid-template-columns:repeat(12,1fr);gap:12px;padding:clamp(60px,8vw,110px) var(--gut);border-top:1px solid var(--ink-15);min-height:90vh;align-items:center}
+.dial-left{grid-column:1/4;align-self:stretch;display:flex;flex-direction:column;justify-content:space-between;gap:40px}
+.dial-list{display:flex;flex-direction:column;gap:2px}
+.dial-list small{color:var(--ink-60);font-size:13px;margin-bottom:8px}
+.dial-list button{text-align:left;font-family:var(--display);font-stretch:118%;font-weight:600;font-size:clamp(26px,2.8vw,42px);letter-spacing:-.03em;line-height:1.08;color:var(--ink-30);transition:color .3s}
+.dial-list button.on{color:var(--ink)}
+.dial-mid{grid-column:4/10;position:relative;aspect-ratio:1;max-width:620px;width:100%;justify-self:center}
+.dial-mid svg.ticks{position:absolute;inset:0;width:100%;height:100%;transition:transform 1.1s cubic-bezier(.6,0,.2,1)}
+.dial-mid svg.ticks.inner{inset:9%;width:82%;height:82%}
+.dial-core{position:absolute;inset:22%;border-radius:50%;background:var(--deep);color:var(--deep-ink);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:8%;gap:10px}
+.dial-core b{font-family:var(--display);font-stretch:125%;font-weight:700;font-size:clamp(40px,6vw,84px);letter-spacing:-.05em;line-height:.9}
+.dial-core p{margin:0;color:var(--deep-60);font-size:clamp(13px,1vw,15px);max-width:24ch}
+.dial-core .dot{width:12px;height:12px;border-radius:3px}
+.dial-right{grid-column:10/13;align-self:end;justify-self:end;text-align:right;font-size:14px;color:var(--ink-60)}
+.dial-right b{display:block;font-family:var(--display);font-stretch:120%;color:var(--ink);font-size:22px}
+@media (max-width:900px){.dial-left,.dial-mid,.dial-right{grid-column:1/-1}.dial-right{justify-self:start;text-align:left}.dial-list{flex-direction:row;flex-wrap:wrap;gap:4px 14px}}
+
+/* ---------- security teaser ---------- */
+.sec-row{display:grid;grid-template-columns:repeat(12,1fr);gap:12px;padding:0 var(--gut) clamp(60px,8vw,120px)}
+.sec-vis{grid-column:1/7;background:var(--deep);border-radius:var(--r-md);aspect-ratio:4/5;max-height:720px;width:100%;position:relative;overflow:hidden}
+.sec-vis svg{position:absolute;inset:0;width:100%;height:100%}
+.sec-text{grid-column:8/13;display:flex;flex-direction:column;justify-content:space-between;gap:32px}
+.sec-text .sticky{position:sticky;top:100px}
+@media (max-width:900px){.sec-vis,.sec-text{grid-column:1/-1}.sec-vis{aspect-ratio:4/3}}
+
+/* ---------- big type + params ---------- */
+.bigtype{padding:clamp(30px,4vw,60px) var(--gut) 10px;text-align:center}
+.bigtype .word{font-family:var(--display);font-stretch:125%;font-weight:800;font-size:clamp(54px,12.5vw,210px);line-height:.86;letter-spacing:-.055em;margin:0;color:transparent;-webkit-text-stroke:1.5px var(--ink)}
+.bigtype .word.fill{color:var(--ink);-webkit-text-stroke:0}
+.bigtype p{margin:18px 0 0;color:var(--ink-60)}
+.params{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:clamp(40px,5vw,70px) var(--gut)}
+.param{background:var(--card);border-radius:var(--r-md);overflow:hidden;display:flex;flex-direction:column;text-align:left}
+.param-vis{aspect-ratio:16/10;background:var(--paper-2);position:relative;display:grid;place-items:center;padding:18px}
+.param-vis svg{width:100%;height:100%;max-height:170px}
+.param-desc{position:absolute;inset:0;background:var(--cobalt);color:#fff;padding:20px;display:flex;align-items:flex-end;font-size:15px;line-height:1.45;opacity:0;transform:translateY(8px);transition:opacity .35s,transform .35s}
+.param.open .param-desc{opacity:1;transform:none}
+.param-foot{display:flex;justify-content:space-between;align-items:center;padding:14px 14px 14px 18px;gap:10px}
+.param-foot .chip{display:flex;align-items:center;gap:8px;background:var(--paper-2);border-radius:4px;padding:5px 8px;font-size:12px;font-weight:600;flex:none}
+.param-foot .chip svg{width:9px;height:9px;transition:transform .35s}
+.param.open .chip{background:var(--ink);color:var(--paper)}
+.param.open .chip svg{transform:rotate(45deg)}
+.center-cta{text-align:center;padding:10px var(--gut) clamp(70px,9vw,130px);display:flex;flex-direction:column;align-items:center;gap:28px}
+.center-cta .xl{max-width:30ch}
+@media (max-width:900px){.params{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.params{grid-template-columns:1fr}}
+
+/* ---------- use cases ---------- */
+.uses{display:grid;grid-template-columns:repeat(12,1fr);gap:12px;padding:0 var(--gut) clamp(80px,10vw,150px)}
+.uses-list{grid-column:4/10;display:flex;flex-direction:column;align-items:center;gap:2px}
+.uses-list span{font-family:var(--display);font-stretch:118%;font-weight:600;font-size:clamp(28px,4vw,60px);letter-spacing:-.035em;line-height:1.12;color:var(--ink-15);transition:color .25s;text-align:center}
+.uses-list span.on{color:var(--ink)}
+.uses-rail{grid-column:span 3;position:relative}
+.uses-rail i{position:sticky;top:50vh;display:block;height:2px;background:var(--cobalt);width:60%}
+.uses-rail.r i{margin-left:auto}
+@media (max-width:767px){.uses-rail{display:none}.uses-list{grid-column:1/-1}}
+
+/* ---------- next band ---------- */
+.next{position:relative;background:var(--deep);color:var(--deep-ink);padding:clamp(60px,8vw,110px) var(--gut);overflow:hidden}
+.next .grid12{align-items:end;gap:30px 12px}
+.next .h1{grid-column:1/10;font-size:clamp(40px,7vw,110px)}
+.next .act{grid-column:10/13;justify-self:end}
+.next svg.bgflow{position:absolute;right:-5%;top:0;height:100%;width:70%;opacity:.35}
+@media (max-width:900px){.next .h1,.next .act{grid-column:1/-1;justify-self:start}}
+
+/* ---------- footer ---------- */
+footer{position:relative;z-index:1;background:var(--paper);padding:clamp(50px,6vw,80px) var(--gut) 24px;border-top:1px solid var(--ink-15)}
+.foot{display:grid;grid-template-columns:repeat(12,1fr);gap:40px 12px}
+.foot-left{grid-column:1/5;display:flex;flex-direction:column;justify-content:space-between;gap:30px;color:var(--ink)}
+.foot-left .logo{width:150px}
+.foot-cols{grid-column:6/13;display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+.foot-cols h4{margin:0 0 14px;font-size:13px;font-weight:600}
+.foot-cols ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.foot-cols a{color:var(--ink-60);font-size:15px}
+.foot-cols a:hover{color:var(--ink)}
+.foot-bottom{margin-top:60px;padding-top:18px;border-top:1px solid var(--ink-15);display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;color:var(--ink-60);font-size:13px}
+@media (max-width:900px){.foot-left,.foot-cols{grid-column:1/-1}}
+@media (max-width:560px){.foot-cols{grid-template-columns:repeat(2,1fr)}}
+
+/* ---------- subpage head ---------- */
+.phead{background:var(--deep);color:var(--deep-ink);padding:calc(env(safe-area-inset-top,0px) + 150px) var(--gut) clamp(40px,5vw,70px);position:relative;overflow:hidden}
+.phead .grid12{gap:28px 12px;align-items:end}
+.phead .h1{grid-column:1/9}
+.phead p.lead{grid-column:9/13;color:var(--deep-60);margin:0;font-size:clamp(16px,1.3vw,19px);max-width:36ch}
+.phead .eyebrows{margin-bottom:28px}
+@media (max-width:900px){.phead .h1,.phead p.lead{grid-column:1/-1}}
+
+/* ---------- modules page ---------- */
+.mrow{display:grid;grid-template-columns:repeat(12,1fr);gap:28px 12px;padding:clamp(50px,6vw,90px) var(--gut);border-bottom:1px solid var(--ink-15)}
+.mrow-head{grid-column:1/5;display:flex;flex-direction:column;gap:18px}
+.mrow-head .swatch{width:18px;height:18px;border-radius:4px}
+.mrow-head h2{font-family:var(--display);font-stretch:122%;font-weight:700;font-size:clamp(34px,4vw,60px);letter-spacing:-.045em;line-height:.95;margin:0}
+.mrow-body{grid-column:5/9;display:flex;flex-direction:column;gap:22px}
+.mrow-body .m{max-width:40ch}
+.steps{list-style:none;margin:0;padding:0;counter-reset:st;display:flex;flex-direction:column}
+.steps li{counter-increment:st;display:grid;grid-template-columns:36px 1fr;gap:10px;padding:12px 0;border-top:1px solid var(--ink-15);font-size:15px;color:var(--ink-60)}
+.steps li::before{content:counter(st);font-weight:700;color:var(--ink);font-stretch:120%}
+.mrow-vis{grid-column:9/13;background:var(--card);border-radius:var(--r-md);aspect-ratio:1;display:grid;place-items:center;padding:24px}
+.mrow-vis svg{width:100%;height:100%}
+.knobs{display:flex;flex-wrap:wrap;gap:6px}
+.knobs span{background:var(--card);padding:5px 9px;border-radius:4px;font-size:13px;font-family:var(--mono)}
+@media (max-width:900px){.mrow-head,.mrow-body,.mrow-vis{grid-column:1/-1}.mrow-vis{max-width:420px}}
+
+/* ---------- configurator ---------- */
+.cfg{display:grid;grid-template-columns:repeat(12,1fr);gap:12px;padding:clamp(40px,5vw,70px) var(--gut) clamp(70px,9vw,120px)}
+.cfg-ctrl{grid-column:1/7;display:flex;flex-direction:column;gap:8px}
+.cfg-out{grid-column:7/13;display:flex;flex-direction:column;gap:8px}
+.panel{background:var(--card);border-radius:var(--r-md);padding:20px}
+.panel h3{margin:0 0 4px;font-family:var(--display);font-stretch:115%;font-size:19px;letter-spacing:-.01em}
+.panel > p.s{margin-bottom:18px}
+.route{display:grid;grid-template-columns:14px 1fr 64px;gap:10px 12px;align-items:center;padding:12px 0;border-top:1px solid var(--ink-15)}
+.route:first-of-type{border-top:0}
+.route .dot{width:12px;height:12px;border-radius:3px}
+.route label{font-weight:600}
+.route output{text-align:right;font-family:var(--display);font-stretch:120%;font-weight:700;font-size:20px;font-variant-numeric:tabular-nums}
+.route input{grid-column:2/4}
+.route .lock{grid-column:2/4;display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-60)}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:linear-gradient(to right,var(--fill,var(--cobalt)) var(--p,50%),var(--ink-15) var(--p,50%))}
+input[type=range]::-moz-range-track{height:4px;border-radius:2px;background:linear-gradient(to right,var(--fill,var(--cobalt)) var(--p,50%),var(--ink-15) var(--p,50%))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:5px;background:var(--paper);border:2px solid var(--ink);margin-top:-8px}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:5px;background:var(--paper);border:2px solid var(--ink)}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:13px;font-weight:600}
+.field input,.field select,.field textarea{font:inherit;font-size:15px;color:var(--ink);background:var(--paper);border:1px solid var(--ink-15);border-radius:var(--r-sm);padding:10px 12px;width:100%}
+.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--cobalt);outline-offset:0;border-color:transparent}
+.field small{color:var(--ink-60);font-size:12px}
+.check{display:flex;align-items:flex-start;gap:10px;font-size:15px;padding:8px 0;cursor:pointer}
+.check input{width:18px;height:18px;accent-color:var(--cobalt);margin-top:2px;flex:none}
+.donut-wrap{display:grid;grid-template-columns:200px 1fr;gap:24px;align-items:center}
+.donut{position:relative;width:200px;height:200px}
+.donut svg{width:100%;height:100%;transform:rotate(-90deg)}
+.donut circle{transition:stroke-dasharray .35s ease,stroke-dashoffset .35s ease}
+.donut .mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.donut .mid b{font-family:var(--display);font-stretch:120%;font-size:26px;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.donut .mid span{font-size:12px;color:var(--ink-60)}
+.est{display:flex;flex-direction:column}
+.est div{display:grid;grid-template-columns:12px 1fr auto;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--ink-15);font-size:15px}
+.est div:first-child{border-top:0}
+.est .dot{width:10px;height:10px;border-radius:3px}
+.est b{font-variant-numeric:tabular-nums}
+.code{background:var(--deep);color:var(--deep-ink);border-radius:var(--r-md);padding:18px;font-family:var(--mono);font-size:13px;line-height:1.6;overflow-x:auto;white-space:pre;margin:0}
+.code .k{color:#8EA0FF}.code .n{color:var(--amber)}.code .st{color:var(--sky)}
+.row-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.note{font-size:13px;color:var(--ink-60)}
+.warn{font-size:13px;color:var(--amber);min-height:1em}
+@media (max-width:1000px){.cfg-ctrl,.cfg-out{grid-column:1/-1}}
+@media (max-width:520px){.donut-wrap{grid-template-columns:1fr;justify-items:center}.fields{grid-template-columns:1fr}}
+
+/* ---------- security / docs ---------- */
+.plist{padding:clamp(40px,5vw,70px) var(--gut)}
+.prin{display:grid;grid-template-columns:repeat(12,1fr);gap:12px;padding:28px 0;border-top:1px solid var(--ink-15)}
+.prin h3{grid-column:1/5;margin:0;font-family:var(--display);font-stretch:118%;font-size:clamp(22px,2.2vw,32px);letter-spacing:-.03em;line-height:1.05}
+.prin p{grid-column:6/12;margin:0;font-size:clamp(16px,1.2vw,18px);color:var(--ink-60);max-width:58ch}
+@media (max-width:767px){.prin h3,.prin p{grid-column:1/-1}}
+.cant{margin:0 var(--gut) clamp(60px,8vw,110px);background:var(--deep);color:var(--deep-ink);border-radius:var(--r-md);padding:clamp(24px,4vw,50px);display:grid;grid-template-columns:repeat(12,1fr);gap:24px 12px}
+.cant h2{grid-column:1/6;margin:0;font-family:var(--display);font-stretch:122%;font-size:clamp(30px,3.6vw,52px);letter-spacing:-.04em;line-height:.98}
+.cant ul{grid-column:7/13;list-style:none;margin:0;padding:0}
+.cant li{padding:12px 0;border-top:1px solid var(--deep-15);display:flex;gap:12px;color:var(--deep-60)}
+.cant li svg{flex:none;width:16px;height:16px;margin-top:4px;stroke:var(--amber);stroke-width:2}
+@media (max-width:900px){.cant h2,.cant ul{grid-column:1/-1}}
+.qs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 var(--gut) clamp(50px,6vw,90px)}
+.qs .stp{background:var(--card);border-radius:var(--r-md);padding:20px;display:flex;flex-direction:column;gap:40px;min-height:230px}
+.qs .stp b.n{font-family:var(--display);font-stretch:125%;font-size:42px;letter-spacing:-.05em;line-height:.8;color:var(--cobalt)}
+@media (max-width:900px){.qs{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:520px){.qs{grid-template-columns:1fr}}
+.faq{padding:0 var(--gut) clamp(70px,9vw,120px)}
+.faq details{border-top:1px solid var(--ink-15)}
+.faq details:last-child{border-bottom:1px solid var(--ink-15)}
+.faq summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:20px;padding:22px 0;font-family:var(--display);font-stretch:112%;font-weight:600;font-size:clamp(18px,1.6vw,24px);letter-spacing:-.015em}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary .pl{width:30px;height:30px;flex:none;border-radius:4px;background:var(--card);display:grid;place-items:center;transition:transform .3s,background .3s}
+.faq summary .pl svg{width:10px;height:10px}
+.faq details[open] summary .pl{transform:rotate(45deg);background:var(--cobalt);color:#fff}
+.faq details p{margin:0 0 24px;color:var(--ink-60);max-width:64ch;font-size:16px}
+
+/* ---------- launch ---------- */
+.lgrid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px;padding:clamp(40px,5vw,70px) var(--gut) clamp(70px,9vw,120px);align-items:start}
+.lform{grid-column:1/8;display:flex;flex-direction:column;gap:8px}
+.lside{grid-column:8/13;position:sticky;top:84px;display:flex;flex-direction:column;gap:8px}
+.lbl-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.lbl-row small{color:var(--ink-60);font-size:12px;font-variant-numeric:tabular-nums}
+.img-drop{position:relative;display:grid;grid-template-columns:96px 1fr;gap:14px;align-items:center;border:1px dashed var(--ink-30);border-radius:var(--r-md);padding:12px;cursor:pointer;background:var(--paper)}
+.img-drop:focus-within{outline:2px solid var(--cobalt);outline-offset:2px}
+.img-drop .thumb{width:96px;height:96px;border-radius:var(--r-sm);background:var(--paper-2);display:grid;place-items:center;overflow:hidden;font-size:12px;color:var(--ink-60);text-align:center}
+.img-drop .thumb img,.coin .thumb img{width:100%;height:100%;object-fit:cover}
+.img-drop input{position:absolute;opacity:0;width:1px;height:1px}
+.srow{display:grid;grid-template-columns:12px 1fr 100px;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--ink-15)}
+.srow:first-child{border-top:0}
+.srow .dot{width:12px;height:12px;border-radius:3px}
+.srow b{font-weight:600}
+.srow small{display:block;color:var(--ink-60);font-size:13px}
+.pct{position:relative;display:block}
+.pct input{text-align:right;padding-right:28px!important;font-variant-numeric:tabular-nums}
+.pct::after{content:"%";position:absolute;right:11px;top:50%;transform:translateY(-50%);color:var(--ink-60);font-size:14px;pointer-events:none}
+.pin{font:inherit;font-size:15px;color:var(--ink);background:var(--paper);border:1px solid var(--ink-15);border-radius:var(--r-sm);padding:10px 12px;width:100%}
+.pin:focus{outline:2px solid var(--cobalt);outline-offset:0;border-color:transparent}
+.crow{display:grid;grid-template-columns:1fr 120px 100px 38px;gap:8px;align-items:end;padding:12px 0;border-top:1px solid var(--ink-15)}
+.crow .rm{width:38px;height:42px;border-radius:var(--r-sm);background:var(--paper-2);display:grid;place-items:center}
+.crow .rm svg{width:10px;height:10px;transform:rotate(45deg)}
+.total{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding:12px 14px;border-radius:var(--r-sm);background:var(--paper-2);font-weight:600;font-variant-numeric:tabular-nums}
+.total.bad{background:rgba(229,72,77,.12);color:#C9373C}
+.total.good{background:rgba(35,64,255,.10)}
+.sbar{display:flex;height:12px;border-radius:4px;overflow:hidden;background:var(--ink-15);margin:16px 0 6px}
+.sbar i{display:block;height:100%;transition:width .3s}
+.coin{display:grid;grid-template-columns:64px 1fr;gap:14px;align-items:center}
+.coin .thumb{width:64px;height:64px;border-radius:var(--r-sm);background:var(--paper-2);overflow:hidden;display:grid;place-items:center;color:var(--ink-60);font-size:11px}
+.coin b{display:block;font-family:var(--display);font-stretch:118%;font-size:22px;letter-spacing:-.02em;line-height:1.1;word-break:break-word}
+.coin span{color:var(--ink-60);font-size:14px}
+.txlist{list-style:none;margin:0;padding:0;counter-reset:tx}
+.txlist li{counter-increment:tx;display:grid;grid-template-columns:28px 1fr;gap:8px;padding:10px 0;border-top:1px solid var(--ink-15);font-size:14px;color:var(--ink-60)}
+.txlist li::before{content:counter(tx);font-weight:700;color:var(--ink)}
+.txlist li b{color:var(--ink);font-weight:600}
+.errs{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+.errs:empty{display:none}
+.errs li{font-size:13px;color:#C9373C;display:flex;gap:8px}
+.errs li::before{content:"";flex:none;width:6px;height:6px;border-radius:2px;background:currentColor;margin-top:7px}
+.statuslog{font-family:var(--mono);font-size:12px;line-height:1.7;background:var(--deep);color:var(--deep-ink);border-radius:var(--r-sm);padding:12px;max-height:180px;overflow:auto;display:none}
+.statuslog.on{display:block}
+.wallet-pill{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-60)}
+.wallet-pill i{width:8px;height:8px;border-radius:50%;background:var(--ink-30)}
+.wallet-pill.on i{background:#3DDC97}
+.note-box{margin:0;font-size:13px;color:var(--ink-60);background:var(--paper-2);border-radius:var(--r-sm);padding:12px}
+.done{display:none;background:var(--cobalt);color:#fff;border-radius:var(--r-md);padding:20px}
+.done.on{display:block}
+.done a{text-decoration:underline}
+.done code{font-family:var(--mono);font-size:12px;word-break:break-all}
+.tagbtn{padding:6px 10px;border-radius:4px;font-size:13px;font-weight:600;background:var(--paper-2)}
+.tagbtn:hover{background:var(--ink);color:var(--paper)}
+@media (max-width:1000px){.lform,.lside{grid-column:1/-1}.lside{position:static}}
+@media (max-width:560px){.crow{grid-template-columns:1fr 100px 38px}.crow .lab{grid-column:1/-1;order:3}.lfields3{grid-template-columns:1fr!important}}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{transition-duration:.01ms!important;animation-duration:.01ms!important}
+  .h1 .ln > span{transform:none}
+}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="tri" viewBox="0 0 10 12"><path d="M0 1.2C0 .4.9-.1 1.6.4l7.8 5c.6.4.6 1.2 0 1.6l-7.8 5c-.7.5-1.6 0-1.6-.8z"/></symbol>
+    <symbol id="plus" viewBox="0 0 10 10"><path d="M4.3 0h1.4v4.3H10v1.4H5.7V10H4.3V5.7H0V4.3h4.3z" fill="currentColor"/></symbol>
+    <symbol id="wordmark" viewBox="0 0 132 32">
+      <rect x="1" y="1" width="130" height="30" rx="5" fill="none" stroke="currentColor" stroke-width="2"/>
+      <rect x="1" y="1" width="30" height="30" rx="5" fill="currentColor"/>
+      <path d="M12 10l-5 6 5 6M20 10l5 6-5 6" fill="none" stroke="var(--logo-cut,#0A1440)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="81" y="22.5" text-anchor="middle" font-family="Archivo, Arial, sans-serif" font-weight="800" font-size="16" letter-spacing="2.4" fill="currentColor" style="font-stretch:125%">CODED</text>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="loader" id="loader" aria-hidden="true">
+  <div><svg class="logo" viewBox="0 0 132 32" style="--logo-cut:#0A1440"><use href="#wordmark"/></svg><div class="bar"><i></i></div></div>
+</div>
+
+<div class="site-grid" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+
+<header class="nav">
+  <a href="#/home" class="logo-link" aria-label="CODED home"><svg class="logo" viewBox="0 0 132 32" style="--logo-cut:#000"><use href="#wordmark"/></svg></a>
+  <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="menu"><span id="menuLabel">Menu</span><span class="menu-icon"><i></i><i></i></span></button>
+</header>
+<div class="scrim" id="scrim"></div>
+<nav class="menu" id="menu" aria-label="Main">
+  <ul>
+    <li><a href="#/modules" data-link="modules"><svg class="sq" viewBox="0 0 32 32"><rect width="32" height="32" rx="4" fill="var(--cobalt)"/><path d="M13 11l7 5-7 5z" fill="#fff"/></svg>Modules</a></li>
+    <li><a href="#/configurator" data-link="configurator"><svg class="sq" viewBox="0 0 32 32"><rect width="32" height="32" rx="4" fill="var(--cobalt)"/><path d="M13 11l7 5-7 5z" fill="#fff"/></svg>Configurator</a></li>
+    <li><a href="#/security" data-link="security"><svg class="sq" viewBox="0 0 32 32"><rect width="32" height="32" rx="4" fill="var(--cobalt)"/><path d="M13 11l7 5-7 5z" fill="#fff"/></svg>Security</a></li>
+  </ul>
+  <ul>
+    <li><a href="#/docs" data-link="docs"><svg class="sq" viewBox="0 0 32 32"><rect width="32" height="32" rx="4" fill="var(--cobalt)"/><path d="M13 11l7 5-7 5z" fill="#fff"/></svg>Docs</a></li>
+    <li><a href="#/launch" data-link="launch"><svg class="sq" viewBox="0 0 32 32"><rect width="32" height="32" rx="4" fill="var(--amber)"/><path d="M13 11l7 5-7 5z" fill="#0A1440"/></svg>Launch a coin</a></li>
+    <li><a href="#/home" data-link="home"><svg class="sq" viewBox="0 0 32 32"><rect width="32" height="32" rx="4" fill="var(--cobalt)"/><path d="M13 11l7 5-7 5z" fill="#fff"/></svg>Home</a></li>
+  </ul>
+  <ul>
+    <li><a href="#" aria-label="CODED on X"><svg class="sq" viewBox="0 0 32 32"><rect width="32" height="32" rx="4" fill="var(--ink)"/><path d="M10 9h3.4l3.3 4.6L20.6 9H23l-5.2 6 5.7 8h-3.4l-3.6-5-4.3 5H10l5.7-6.5z" fill="var(--paper)"/></svg>X</a></li>
+    <li><a href="#" aria-label="CODED on Telegram"><svg class="sq" viewBox="0 0 32 32"><rect width="32" height="32" rx="4" fill="var(--ink)"/><path d="M8 15.5l15-6-2.5 13-4.5-3.5-2.4 2.3.3-3.8 6.4-5.8-8 5z" fill="var(--paper)"/></svg>Telegram</a></li>
+    <li class="theme-row" role="group" aria-label="Color theme">
+      <button data-theme-set="auto" aria-pressed="true">Auto</button>
+      <button data-theme-set="light" aria-pressed="false">Light</button>
+      <button data-theme-set="dark" aria-pressed="false">Dark</button>
+    </li>
+  </ul>
+</nav>
+
+<div class="swap" id="swap" aria-hidden="true"><span id="swapLabel">Home</span></div>
+
+<main id="main">
+
+<!-- ======================= HOME ======================= -->
+<section class="page" data-page="home" data-title="Home">
+  <div class="hero on-deep">
+    <canvas id="flow" aria-hidden="true"></canvas>
+    <div class="hero-inner">
+      <div class="hero-left">
+        <h1 class="h1"><span class="ln"><span>Program where</span></span><span class="ln"><span>your fees flow.</span></span></h1>
+        <p class="hero-sub">CODED claims your pump.fun creator fees and routes them by rules you set: to holders, into liquidity, into a buyback and burn, or back to you.</p>
+      </div>
+      <div class="hero-right">
+        <a class="hero-card" href="#/configurator"><span><b>Build a fee split</b><small>Drag the ratios, see the payout</small></span><span class="sq"><svg viewBox="0 0 10 12"><use href="#tri"/></svg></span></a>
+        <a class="hero-card" href="#/launch"><span><b>Launch a coin</b><small>Create it with the split built in</small></span><span class="sq"><svg viewBox="0 0 10 12"><use href="#tri"/></svg></span></a>
+      </div>
+    </div>
+  </div>
+
+  <div class="intro">
+    <div class="eyebrows"><span class="tag">S.01</span><h2 class="tag ink">What it is</h2></div>
+    <p class="xl">CODED is a fee router for tokens launched on pump.fun. You write the rules once; it runs them every claim cycle.</p>
+  </div>
+  <div class="about">
+    <div class="term" aria-label="Example routing log">
+      <div class="term-head"><span><i></i>Routing log</span><span>example token</span></div>
+      <div class="term-body" id="termBody"></div>
+    </div>
+    <div class="about-right">
+      <div class="stats">
+        <div class="stat"><svg viewBox="0 0 30 30"><path d="M3 15h8M11 15c5 0 5-9 12-9M11 15c5 0 5 9 12 9M11 15h12"/><circle cx="25" cy="6" r="2"/><circle cx="25" cy="15" r="2"/><circle cx="25" cy="24" r="2"/></svg><div><b>4</b><span>Built-in routes</span></div></div>
+        <div class="stat"><svg viewBox="0 0 30 30"><rect x="6" y="13" width="18" height="13" rx="2"/><path d="M10 13V9a5 5 0 0110 0v4"/></svg><div><b>0</b><span>Wallets we hold for you</span></div></div>
+        <div class="stat"><svg viewBox="0 0 30 30"><path d="M8 4h11l5 5v17H8z"/><path d="M19 4v5h5M12 15h8M12 19h8"/></svg><div><b>1</b><span>Public config per token</span></div></div>
+        <div class="stat"><svg viewBox="0 0 30 30"><circle cx="15" cy="15" r="11"/><path d="M15 8v7l5 3"/></svg><div><b>15m</b><span>Shortest claim cycle</span></div></div>
+        <div class="stat"><svg viewBox="0 0 30 30"><path d="M4 22l7-7 5 5 10-10"/><path d="M20 10h6v6"/></svg><div><b>100%</b><span>Of fees routed, minus gas</span></div></div>
+        <div class="stat"><svg viewBox="0 0 30 30"><path d="M15 4l9 4v7c0 6-4 9-9 11-5-2-9-5-9-11V8z"/><path d="M11 15l3 3 5-6"/></svg><div><b>48h</b><span>Timelock on rule changes</span></div></div>
+      </div>
+      <div class="about-cta">
+        <p class="s">Creators get a dependable reason for people to hold. Holders get a clear, published rule for what happens to the fees their trades generate. Nobody has to trust a promise in a group chat.</p>
+        <a class="btn" href="#/security">How it stays safe <span class="sq"><svg viewBox="0 0 10 12"><use href="#tri"/></svg></span></a>
+      </div>
+    </div>
+  </div>
+
+  <div class="intro">
+    <div class="eyebrows"><span class="tag">S.02</span><h2 class="tag ink">Modules</h2></div>
+    <p class="xl">Pick the routes that fit your token. Mix them in any ratio that adds up to 100.</p>
+  </div>
+  <div class="mod-grid">
+    <a class="mod-card" href="#/modules"><svg viewBox="0 0 48 48"><circle cx="24" cy="12" r="5"/><circle cx="10" cy="36" r="5"/><circle cx="38" cy="36" r="5"/><circle cx="24" cy="36" r="5"/><path d="M24 17v14M21 16l-8 15M27 16l8 15"/></svg><div><h3 class="l">Holder split</h3><p class="s">Pay a share of every claim to wallets holding your token, pro rata to their balance.</p></div></a>
+    <a class="mod-card" href="#/modules"><svg viewBox="0 0 48 48"><path d="M8 30c5-4 10-4 16 0s11 4 16 0"/><path d="M8 38c5-4 10-4 16 0s11 4 16 0"/><path d="M24 6v16M17 13l7-7 7 7"/></svg><div><h3 class="l">Auto-liquidity</h3><p class="s">Pair fees with your token and add them to the pool, then lock or burn the LP tokens.</p></div></a>
+    <a class="mod-card" href="#/modules"><svg viewBox="0 0 48 48"><path d="M24 6c6 8 12 12 12 22a12 12 0 01-24 0c0-5 3-8 5-10 0 4 2 6 4 6-1-7 1-12 3-18z"/></svg><div><h3 class="l">Buyback and burn</h3><p class="s">Buy your token from the pool with fees and send it to the burn address. Supply only goes down.</p></div></a>
+    <a class="mod-card" href="#/modules"><svg viewBox="0 0 48 48"><rect x="8" y="14" width="32" height="24" rx="3"/><path d="M8 20h32M30 29h4"/><path d="M16 14V9h16v5"/></svg><div><h3 class="l">Creator share</h3><p class="s">Keep a fixed slice for yourself, a team multisig or a project treasury.</p></div></a>
+    <a class="mod-card" href="#/modules"><svg viewBox="0 0 48 48"><path d="M8 24h12l6-10h14M26 34h14M20 24l6 10"/><circle cx="40" cy="14" r="2"/><circle cx="40" cy="34" r="2"/></svg><div><h3 class="l">Custom route</h3><p class="s">Send a percentage to any address you name: marketing, a charity, a partner.</p></div></a>
+    <a class="mod-card cta" href="#/configurator"><div style="display:flex;flex-direction:column;gap:20px;align-items:flex-start"><p class="m">Try ratios with live numbers before you commit anything on-chain.</p><span class="btn light">Open configurator <span class="sq"><svg viewBox="0 0 10 12"><use href="#tri"/></svg></span></span></div></a>
+  </div>
+
+  <div class="dial-sec">
+    <div class="dial-left">
+      <div class="eyebrows"><span class="tag">S.03</span><h2 class="tag ink">Routes</h2></div>
+      <div class="dial-list" id="dialList" role="tablist" aria-label="Routes">
+        <small>Where a claim can go</small>
+      </div>
+    </div>
+    <div class="dial-mid">
+      <svg class="ticks" id="ticksOuter" viewBox="0 0 616 616" aria-hidden="true"></svg>
+      <svg class="ticks inner" id="ticksInner" viewBox="0 0 616 616" aria-hidden="true"></svg>
+      <div class="dial-core" aria-live="polite">
+        <span class="dot" id="dialDot"></span>
+        <b id="dialPct">30%</b>
+        <p id="dialText"></p>
+      </div>
+    </div>
+    <div class="dial-right"><b id="dialCode">R/01</b>share of each claim<br>in the example split</div>
+  </div>
+
+  <div class="intro" style="padding-top:0">
+    <div class="eyebrows"><span class="tag">S.04</span><h2 class="tag ink">Security</h2></div>
+    <p class="xl">CODED never takes custody. The program can only move fees along the routes your config names.</p>
+  </div>
+  <div class="sec-row">
+    <div class="sec-vis" aria-hidden="true">
+      <svg viewBox="0 0 400 500" preserveAspectRatio="xMidYMid slice">
+        <defs><pattern id="dots" width="16" height="16" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="rgba(228,233,238,.18)"/></pattern></defs>
+        <rect width="400" height="500" fill="url(#dots)"/>
+        <rect x="120" y="150" width="160" height="200" rx="12" fill="none" stroke="#E4E9EE" stroke-width="1.5"/>
+        <path d="M150 150v-38a50 50 0 01100 0v38" fill="none" stroke="#E4E9EE" stroke-width="1.5"/>
+        <circle cx="200" cy="235" r="14" fill="#FF9F1C"/><rect x="195" y="245" width="10" height="40" rx="3" fill="#FF9F1C"/>
+        <g font-family="IBM Plex Mono, monospace" font-size="11" fill="rgba(228,233,238,.55)">
+          <text x="40" y="410">routes: [holders, lp, burn, creator]</text>
+          <text x="40" y="430">custody: none</text>
+          <text x="40" y="450">rule_change_delay: 48h</text>
+          <text x="40" y="470">max_slippage_bps: 300</text>
+        </g>
+      </svg>
+    </div>
+    <div class="sec-text">
+      <div class="sticky"><p class="m">The split between CODED, the creator and any custom wallets is written into pump.fun at launch and can never change. Inside CODED's share, changing the ratios starts a public 48-hour countdown, so holders always see what is coming.</p></div>
+      <a class="btn" href="#/security">Read the security model <span class="sq"><svg viewBox="0 0 10 12"><use href="#tri"/></svg></span></a>
+    </div>
+  </div>
+
+  <div class="intro" style="padding-bottom:0">
+    <div class="eyebrows"><span class="tag">S.05</span><h2 class="tag ink">Settings</h2></div>
+    <p class="xl">Six settings control everything. Each one is visible to anyone who looks your token up.</p>
+  </div>
+  <div class="bigtype" aria-label="Six settings, one config">
+    <p class="word">Six settings</p>
+    <p class="word fill">one config</p>
+  </div>
+  <div class="params" id="params"></div>
+  <div class="center-cta">
+    <p class="xl">Set them in the configurator and export the result before anything touches mainnet.</p>
+    <a class="btn" href="#/configurator">Open configurator <span class="sq"><svg viewBox="0 0 10 12"><use href="#tri"/></svg></span></a>
+  </div>
+
+  <div class="intro">
+    <div class="eyebrows"><span class="tag">S.06</span><h2 class="tag ink">Made for</h2></div>
+    <p class="xl">Any token with creator fees and a reason to reward the people who stay.</p>
+  </div>
+  <div class="uses">
+    <div class="uses-rail"><i></i></div>
+    <div class="uses-list" id="usesList">
+      <span>Community tokens</span><span>Creator coins</span><span>Meme revivals</span><span>Project treasuries</span><span>Streamer tokens</span><span>Takeover teams</span><span>Charity tokens</span><span>Art collectives</span><span>Game economies</span><span>Long-term holders</span>
+    </div>
+    <div class="uses-rail r"><i></i></div>
+  </div>
+
+  <div class="next on-deep">
+    <svg class="bgflow" viewBox="0 0 400 300" aria-hidden="true" fill="none" stroke="#E4E9EE" stroke-width="1"><path d="M0 150C120 150 160 40 400 40"/><path d="M0 150C120 150 160 110 400 110"/><path d="M0 150C120 150 160 190 400 190"/><path d="M0 150C120 150 160 260 400 260"/></svg>
+    <div class="eyebrows" style="margin-bottom:40px"><span class="tag">S.07</span><span class="tag ink">Next page</span></div>
+    <div class="grid12">
+      <p class="h1">Modules in detail</p>
+      <div class="act"><a class="btn light" href="#/modules">Go to modules <span class="sq"><svg viewBox="0 0 10 12"><use href="#tri"/></svg></span></a></div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= MODULES ======================= -->
+<section class="page" data-page="modules" data-title="Modules">
+  <div class="phead on-deep">
+    <div class="eyebrows"><span class="tag">P.02</span><span class="tag ink">Modules</span></div>
+    <div class="grid12">
+      <h1 class="h1"><span class="ln"><span>Five ways</span></span><span class="ln"><span>to spend a fee.</span></span></h1>
+      <p class="lead">Every claim is split by percentage across the modules you switch on. Here is what each one does with its share.</p>
+    </div>
+  </div>
+  <div id="mrows"></div>
+  <div class="next on-deep">
+    <div class="eyebrows" style="margin-bottom:40px"><span class="tag">Next page</span></div>
+    <div class="grid12"><p class="h1">Configurator</p><div class="act"><a class="btn light" href="#/configurator">Build a split <span class="sq"><svg viewBox="0 0 10 12"><use href="#tri"/></svg></span></a></div></div>
+  </div>
+</section>
+
+<!-- ======================= CONFIGURATOR ======================= -->
+<section class="page" data-page="configurator" data-title="Configurator">
+  <div class="phead on-deep">
+    <div class="eyebrows"><span class="tag">P.03</span><span class="tag ink">Configurator</span></div>
+    <div class="grid12">
+      <h1 class="h1"><span class="ln"><span>Build your</span></span><span class="ln"><span>fee split.</span></span></h1>
+      <p class="lead">Move one slider and the others rebalance so the total stays at 100. Estimates update as you go.</p>
+    </div>
+  </div>
+  <div class="cfg">
+    <div class="cfg-ctrl">
+      <div class="panel">
+        <h3>Routes</h3>
+        <p class="s">Share of each claim sent to each route.</p>
+        <div id="routes"></div>
+        <p class="warn" id="lockWarn" role="status"></p>
+      </div>
+      <div class="panel">
+        <h3>Estimate inputs</h3>
+        <p class="s">Used only for the projections on the right.</p>
+        <div class="fields">
+          <div class="field"><label for="vol">Daily volume (USD)</label><input id="vol" type="number" min="0" step="1000" value="250000" inputmode="numeric"></div>
+          <div class="field"><label for="rate">Creator fee rate (%)</label><input id="rate" type="number" min="0" max="5" step="0.01" value="0.05" inputmode="decimal"><small>Check the current rate for your pool.</small></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Rules</h3>
+        <p class="s">How and when claims run.</p>
+        <div class="fields">
+          <div class="field"><label for="interval">Claim interval</label><select id="interval"><option value="15">Every 15 minutes</option><option value="60" selected>Every hour</option><option value="360">Every 6 hours</option><option value="1440">Daily</option></select></div>
+          <div class="field"><label for="minbal">Minimum holder balance (% of supply)</label><input id="minbal" type="number" min="0" max="5" step="0.01" value="0.05"><small>Wallets below this get nothing from the holder split.</small></div>
+          <div class="field"><label for="slip">Max slippage (%)</label><input id="slip" type="number" min="0.1" max="10" step="0.1" value="3"><small>Buybacks and LP adds skip a cycle above this.</small></div>
+          <div class="field"><label for="lpmode">LP tokens after adding</label><select id="lpmode"><option value="burn">Burn them</option><option value="lock">Lock for 1 year</option></select></div>
+        </div>
+        <label class="check"><input type="checkbox" id="exPool" checked> Exclude the pool and bonding curve accounts from the holder split</label>
+        <label class="check"><input type="checkbox" id="exCreator" checked> Exclude the creator wallet from the holder split</label>
+      </div>
+    </div>
+    <div class="cfg-out">
+      <div class="panel">
+        <h3>Projected daily routing</h3>
+        <p class="s">Before network fees. Real numbers depend on volume.</p>
+        <div class="donut-wrap">
+          <div class="donut"><svg viewBox="0 0 200 200" id="donut"></svg><div class="mid"><b id="dTotal">$125</b><span>per day</span></div></div>
+          <div class="est" id="est"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Per claim</h3>
+        <p class="s" id="perClaim" style="margin:0"></p>
+      </div>
+      <div class="panel">
+        <h3>Your config</h3>
+        <p class="s">This is what holders will see published for your token.</p>
+        <pre class="code" id="json"></pre>
+        <div class="row-btns" style="margin-top:14px">
+          <button class="btn" id="copyBtn">Copy config <span class="sq"><svg viewBox="0 0 10 12"><use href="#tri"/></svg></span></button>
+          <a class="btn ghost" href="#/launch">Launch with this split</a>
+          <span class="note" id="copyNote" role="status"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= SECURITY ======================= -->
+<section class="page" data-page="security" data-title="Security">
+  <div class="phead on-deep">
+    <div class="eyebrows"><span class="tag">P.04</span><span class="tag ink">Security</span></div>
+    <div class="grid12">
+      <h1 class="h1"><span class="ln"><span>Rules you can</span></span><span class="ln"><span>read and check.</span></span></h1>
+      <p class="lead">A fee router is only useful if holders believe it. These are the guarantees the program enforces.</p>
+    </div>
+  </div>
+  <div class="plist">
+    <div class="prin"><h3>No custody</h3><p>Between claims, fees sit in a vault controlled only by the CODED program. It has no private key, so nobody can sign funds out of it. Only the program's own rules can move them.</p></div>
+    <div class="prin"><h3>Public config</h3><p>Every route, ratio and threshold is stored on-chain and shown on a public page for your token. Anyone can compare what was promised with what each claim did.</p></div>
+    <div class="prin"><h3>Split locked at launch</h3><p>The share going to CODED, the creator and custom wallets is set once in pump.fun's fee sharing, and the right to change it is revoked in the same step. Nobody can change it afterwards.</p></div>
+    <div class="prin"><h3>48-hour timelock</h3><p>Inside CODED's share, the creator can rebalance holders, liquidity and burn. Every change waits 48 hours in public before it applies, and the creator can renounce this right to make the ratios permanent.</p></div>
+    <div class="prin"><h3>Slippage caps</h3><p>Buys are sized to the pool's depth and refused if the price has moved too far from a slow-moving reference price. That cycle's share waits for the next claim instead of being spent into a thin or manipulated pool.</p></div>
+    <div class="prin"><h3>Checkable payouts</h3><p>Every holder payout list is published with its merkle root. Anyone can recompute it from the snapshot, and a bad list can be vetoed during a one-hour window before claims open.</p></div>
+    <div class="prin"><h3>Audited before launch</h3><p>The program will be independently audited before mainnet, and the reports will be published here in full.</p></div>
+  </div>
+  <div class="cant on-deep">
+    <h2>What CODED cannot do</h2>
+    <ul>
+      <li><svg viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13"/></svg>Mint new tokens or change your token's supply, other than burning what it buys back.</li>
+      <li><svg viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13"/></svg>Touch tokens or SOL in any wallet, including yours. It only handles claimed creator fees.</li>
+      <li><svg viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13"/></svg>Change pump.fun's trading fees, bonding curve or pool settings. It decides where your share goes, not how much it is.</li>
+      <li><svg viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13"/></svg>Send fees anywhere that isn't listed in your published config.</li>
+      <li><svg viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13"/></svg>Override pump.fun itself. pump.fun's own admins keep powers over coins on their platform, such as community takeovers.</li>
+    </ul>
+  </div>
+  <div class="next on-deep">
+    <div class="eyebrows" style="margin-bottom:40px"><span class="tag">Next page</span></div>
+    <div class="grid12"><p class="h1">Docs and FAQ</p><div class="act"><a class="btn light" href="#/docs">Read the docs <span class="sq"><svg viewBox="0 0 10 12"><use href="#tri"/></svg></span></a></div></div>
+  </div>
+</section>
+
+<!-- ======================= DOCS ======================= -->
+<section class="page" data-page="docs" data-title="Docs">
+  <div class="phead on-deep">
+    <div class="eyebrows"><span class="tag">P.05</span><span class="tag ink">Docs</span></div>
+    <div class="grid12">
+      <h1 class="h1"><span class="ln"><span>From launch</span></span><span class="ln"><span>to first claim.</span></span></h1>
+      <p class="lead">Launching takes one wallet approval. Here is the order things happen in.</p>
+    </div>
+  </div>
+  <div class="intro" style="padding-bottom:30px">
+    <div class="eyebrows"><span class="tag">D.01</span><h2 class="tag ink">Quickstart</h2></div>
+    <p class="xl">Four steps, done from the wallet that launched the token.</p>
+  </div>
+  <div class="qs">
+    <div class="stp"><b class="n">1</b><div><h3 class="l">Describe</h3><p class="s">Enter the coin's name, ticker, image and links on the launch page.</p></div></div>
+    <div class="stp"><b class="n">2</b><div><h3 class="l">Split</h3><p class="s">Choose how creator fees divide between you, holders, liquidity, burn and custom wallets.</p></div></div>
+    <div class="stp"><b class="n">3</b><div><h3 class="l">Approve</h3><p class="s">Approve three transactions at once: create the coin, set up the router, lock the split.</p></div></div>
+    <div class="stp"><b class="n">4</b><div><h3 class="l">Share</h3><p class="s">Post the coin with its public config page so holders can check the rules.</p></div></div>
+  </div>
+  <div class="intro" style="padding-top:20px;padding-bottom:20px">
+    <div class="eyebrows"><span class="tag">D.02</span><h2 class="tag ink">FAQ</h2></div>
+    <p class="xl">Common questions.</p>
+  </div>
+  <div class="faq">
+    <details><summary>Does CODED work before my token graduates?<span class="pl"><svg><use href="#plus"/></svg></span></summary><p>Yes. Holder split, buyback and burn, creator share and custom routes all work on the bonding curve. Auto-liquidity needs the PumpSwap pool, so its share builds up until the coin graduates and is added from then on.</p></details>
+    <details><summary>Who pays the network fees for claims?<span class="pl"><svg><use href="#plus"/></svg></span></summary><p>Network fees for each claim are taken from the claimed amount before it is split. Longer claim intervals mean fewer transactions and less spent on fees.</p></details>
+    <details><summary>How are holder payouts calculated?<span class="pl"><svg><use href="#plus"/></svg></span></summary><p>At each claim, CODED takes a snapshot of balances above your minimum threshold, removes excluded accounts, and pays each wallet its share of the holder route in proportion to its balance.</p></details>
+    <details><summary>Can I change the split later?<span class="pl"><svg><use href="#plus"/></svg></span></summary><p>Partly. The share going to CODED, you and any custom wallets is permanent from launch. Inside CODED's share you can rebalance holders, liquidity and burn, and every change waits 48 hours in public first.</p></details>
+    <details><summary>Is CODED part of pump.fun?<span class="pl"><svg><use href="#plus"/></svg></span></summary><p>No. CODED is an independent tool that works with the creator fees pump.fun pays out. It is not affiliated with or endorsed by pump.fun.</p></details>
+    <details><summary>Does CODED charge a fee?<span class="pl"><svg><use href="#plus"/></svg></span></summary><p>Pricing will be published before launch. Whatever it is, it will appear as its own line in every public config so holders can see it.</p></details>
+  </div>
+</section>
+
+<!-- ======================= LAUNCH ======================= -->
+<section class="page" data-page="launch" data-title="Launch a coin">
+  <div class="phead on-deep">
+    <div class="eyebrows"><span class="tag">P.06</span><span class="tag ink">Launch</span></div>
+    <div class="grid12">
+      <h1 class="h1"><span class="ln"><span>Launch a coin</span></span><span class="ln"><span>with its fees routed.</span></span></h1>
+      <p class="lead">Your coin goes live on pump.fun with the fee split already locked in. Holders can check it from the first trade.</p>
+    </div>
+  </div>
+
+  <div class="lgrid">
+    <form class="lform" id="lForm" novalidate>
+      <div class="panel">
+        <h3>Coin</h3>
+        <p class="s">What people see on pump.fun.</p>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div class="fields">
+            <div class="field"><div class="lbl-row"><label for="lName">Name</label><small id="lNameC">0/32</small></div><input id="lName" maxlength="32" autocomplete="off" placeholder="My Coin"></div>
+            <div class="field"><div class="lbl-row"><label for="lSym">Ticker</label><small id="lSymC">0/13</small></div><input id="lSym" maxlength="13" autocomplete="off" placeholder="MYCOIN" style="text-transform:uppercase"></div>
+          </div>
+          <div class="field"><label for="lDesc">Description</label><textarea id="lDesc" rows="3" maxlength="500" placeholder="What this coin is about"></textarea></div>
+          <div class="field">
+            <span style="font-size:13px;font-weight:600">Image</span>
+            <label class="img-drop" for="lImg">
+              <span class="thumb" id="lThumb">No image</span>
+              <span><b style="display:block;font-weight:600">Choose an image</b><span style="font-size:13px;color:var(--ink-60)">PNG, JPG, GIF or WebP, up to 4 MB. Square works best.</span></span>
+              <input type="file" id="lImg" accept="image/png,image/jpeg,image/gif,image/webp">
+            </label>
+          </div>
+          <div class="fields lfields3" style="grid-template-columns:1fr 1fr 1fr">
+            <div class="field"><label for="lWeb">Website <span style="color:var(--ink-60);font-weight:400">(optional)</span></label><input id="lWeb" type="url" placeholder="https://"></div>
+            <div class="field"><label for="lX">X <span style="color:var(--ink-60);font-weight:400">(optional)</span></label><input id="lX" type="url" placeholder="https://x.com/"></div>
+            <div class="field"><label for="lTg">Telegram <span style="color:var(--ink-60);font-weight:400">(optional)</span></label><input id="lTg" type="url" placeholder="https://t.me/"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="lbl-row"><h3>Fee split</h3><button type="button" class="tagbtn" id="lFromCfg">Use configurator split</button></div>
+        <p class="s">Shares of every creator fee this coin earns. Permanent once launched.</p>
+        <div id="lSplit"></div>
+        <div id="lCustom"></div>
+        <button type="button" class="btn ghost" id="lAddCustom" style="margin-top:10px">Add a custom wallet <span class="sq"><svg viewBox="0 0 10 10" style="fill:#fff;color:#fff"><use href="#plus"/></svg></span></button>
+        <div class="total" id="lTotal" role="status"><span>Total</span><span id="lTotalV">100%</span></div>
+        <div class="field" style="margin-top:14px"><label for="lPayout">Creator share goes to</label><input id="lPayout" spellcheck="false" placeholder="Your connected wallet"><small>Leave empty to use the wallet you launch from. A team multisig is a good choice.</small></div>
+      </div>
+
+      <div class="panel">
+        <h3>Rules</h3>
+        <p class="s">How CODED handles its share. You can change these later, with a 48-hour public delay.</p>
+        <div class="fields">
+          <div class="field"><label for="lMin">Minimum holding for payouts (tokens)</label><input id="lMin" type="number" min="0" step="1000" value="100000"><small>Out of 1 billion total supply.</small></div>
+          <div class="field"><label for="lInt">Claim interval</label><select id="lInt"><option value="900">Every 15 minutes</option><option value="3600" selected>Every hour</option><option value="21600">Every 6 hours</option><option value="86400">Daily</option></select></div>
+          <div class="field"><label for="lSlip">Max slippage (%)</label><input id="lSlip" type="number" min="0.1" max="10" step="0.1" value="3"></div>
+          <div class="field"><label for="lLp">LP tokens after adding</label><select id="lLp"><option value="burn">Burn them</option><option value="lock">Lock for 1 year</option></select></div>
+        </div>
+        <label class="check"><input type="checkbox" id="lExCreator" checked> Exclude the creator wallet from holder payouts</label>
+      </div>
+
+      <div class="panel">
+        <h3>First buy</h3>
+        <p class="s">Optional. Buys your own coin as part of creating it.</p>
+        <div class="field" style="max-width:240px"><label for="lDev">Amount (SOL)</label><input id="lDev" type="number" min="0" step="0.1" value="0" inputmode="decimal"></div>
+      </div>
+    </form>
+
+    <aside class="lside" aria-label="Review and launch">
+      <div class="panel">
+        <div class="coin"><span class="thumb" id="pThumb">Image</span><div><b id="pName">Your coin</b><span id="pSym">$TICKER</span></div></div>
+        <div class="sbar" id="pBar" aria-hidden="true"></div>
+        <div class="est" id="pList"></div>
+      </div>
+      <div class="panel">
+        <h3>What you'll approve</h3>
+        <p class="s">One wallet prompt. The transactions are sent in this order.</p>
+        <ol class="txlist" id="pTx"></ol>
+      </div>
+      <div class="panel" style="display:flex;flex-direction:column;gap:14px">
+        <ul class="errs" id="lErrs"></ul>
+        <label class="check" style="padding:0"><input type="checkbox" id="lAck"> I understand the fee split can't be changed after launch.</label>
+        <div class="row-btns">
+          <button type="button" class="btn ghost" id="lConnect">Connect wallet</button>
+          <span class="wallet-pill" id="lWallet"><i></i><span>Not connected</span></span>
+        </div>
+        <button type="button" class="btn" id="lGo" disabled>Launch coin <span class="sq"><svg viewBox="0 0 10 12"><use href="#tri"/></svg></span></button>
+        <p class="note-box" id="lNote" hidden></p>
+        <div class="statuslog" id="lLog" role="log" aria-live="polite"></div>
+        <div class="done" id="lDone" role="status"></div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="foot">
+    <div class="foot-left">
+      <svg class="logo" viewBox="0 0 132 32" style="--logo-cut:var(--paper)"><use href="#wordmark"/></svg>
+      <p class="s">Fee routing for pump.fun creators. Independent and not affiliated with pump.fun. Nothing here is financial advice.</p>
+    </div>
+    <div class="foot-cols">
+      <div><h4>Product</h4><ul><li><a href="#/modules">Modules</a></li><li><a href="#/configurator">Configurator</a></li><li><a href="#/security">Security</a></li></ul></div>
+      <div><h4>Learn</h4><ul><li><a href="#/docs">Docs</a></li><li><a href="#/docs">FAQ</a></li></ul></div>
+      <div><h4>Community</h4><ul><li><a href="#">X</a></li><li><a href="#">Telegram</a></li></ul></div>
+      <div><h4>Get access</h4><ul><li><a href="#/launch">Launch a coin</a></li></ul></div>
+    </div>
+  </div>
+  <div class="foot-bottom"><span>© 2026 CODED</span><span>Built on Solana</span></div>
+</footer>
+
+<script>
+(function(){
+const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+/* ---------- theme ---------- */
+function setTheme(t){
+  if(t==='auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme',t);
+  $$('[data-theme-set]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.themeSet===t));
+  try{localStorage.setItem('coded-theme',t)}catch(e){}
+  drawDonut&&drawDonut();
+}
+let saved='auto'; try{saved=localStorage.getItem('coded-theme')||'auto'}catch(e){}
+$$('[data-theme-set]').forEach(b=>b.addEventListener('click',()=>setTheme(b.dataset.themeSet)));
+
+/* ---------- menu ---------- */
+const menuBtn=$('#menuBtn');
+function menu(open){document.body.classList.toggle('menu-open',open);menuBtn.setAttribute('aria-expanded',open);$('#menuLabel').textContent=open?'Close':'Menu'}
+menuBtn.addEventListener('click',()=>menu(!document.body.classList.contains('menu-open')));
+$('#scrim').addEventListener('click',()=>menu(false));
+addEventListener('keydown',e=>{if(e.key==='Escape')menu(false)});
+
+/* ---------- router ---------- */
+const pages=$$('.page'); let current=null, first=true;
+function route(){
+  let id=(location.hash.replace(/^#\/?/,'')||'home');
+  if(!pages.some(p=>p.dataset.page===id)) id='home';
+  if(id===current) return;
+  const target=pages.find(p=>p.dataset.page===id);
+  const show=()=>{
+    pages.forEach(p=>p.classList.toggle('on',p===target));
+    $$('.menu a[data-link]').forEach(a=>a.classList.toggle('active',a.dataset.link===id));
+    document.title='CODED | '+target.dataset.title;
+    scrollTo(0,0); current=id;
+    document.body.classList.remove('ready'); requestAnimationFrame(()=>requestAnimationFrame(()=>document.body.classList.add('ready')));
+    if(id==='home') startFlow(); else stopFlow();
+    if(id==='home') updateUses();
+  };
+  menu(false);
+  if(first||reduce){first=false;show();return}
+  const sw=$('#swap'); $('#swapLabel').textContent=target.dataset.title;
+  sw.className='swap'; void sw.offsetWidth; sw.classList.add('in');
+  setTimeout(()=>{show();sw.classList.remove('in');sw.classList.add('out');setTimeout(()=>{sw.className='swap'},460)},460);
+}
+addEventListener('hashchange',route);
+$$('a[href="#"]').forEach(a=>a.addEventListener('click',e=>e.preventDefault()));
+
+/* ---------- data ---------- */
+const R=[
+  {id:'holders',name:'Holder split',color:'--cobalt',def:30,text:'Paid to wallets holding the token, in proportion to balance.',tag:'Pay the people holding.',
+   body:'At each claim, CODED snapshots every wallet above your minimum balance and pays its share of this route in SOL. Pools, curves and any wallet you exclude are left out.',
+   steps:['Fees are claimed from your creator vault','Holder balances are snapshotted','Excluded and small wallets are removed','Each wallet is paid pro rata in SOL'],knobs:['min_balance','exclude[]','pay_in: SOL']},
+  {id:'lp',name:'Auto-liquidity',color:'--sky',def:20,text:'Paired with your token and added to the pool.',tag:'Deepen the pool on autopilot.',
+   body:'Half of this share buys your token, the other half is paired with it and deposited as liquidity. The LP tokens you receive are burned or locked, so the depth stays.',
+   steps:['Half the share buys your token','Both halves are deposited to the pool','LP tokens are burned or locked','Skipped if slippage passes your cap'],knobs:['lp_mode: burn | lock','max_slippage']},
+  {id:'burn',name:'Buyback and burn',color:'--amber',def:20,text:'Buys your token and sends it to the burn address.',tag:'Shrink supply with every trade.',
+   body:'This share market-buys your token from the pool and sends every token bought to the burn address. Large buys are split across cycles to stay inside your slippage cap.',
+   steps:['Share is used to buy your token','Order is split if price impact is high','Bought tokens go to the burn address','Burn total is shown on your public page'],knobs:['max_slippage','max_per_cycle']},
+  {id:'creator',name:'Creator share',color:'--slate',def:30,text:'Kept by you, a team multisig or a treasury.',tag:'Keep a cut, on your terms.',
+   body:'A fixed percentage goes to the wallet you choose. Point it at a multisig or treasury so holders can see the team share is not going to one person.',
+   steps:['Choose a destination wallet','Set the percentage','Paid every claim, same as other routes'],knobs:['wallet','percent']},
+  {id:'custom',name:'Custom route',color:'--ink-60',def:0,text:'Sent to any address you name.',tag:'Send it anywhere.',
+   body:'Add up to three extra destinations with a label each: a marketing wallet, a charity, a partner project. Labels appear on your public page next to the address.',
+   steps:['Add an address and a label','Set its percentage','It shows publicly with its label'],knobs:['address','label','percent']}
+];
+
+/* ---------- terminal log ---------- */
+const term=$('#termBody');
+const logLines=[
+  ()=>`<span class="k">claim</span> <span class="c3">${(Math.random()*3+.4).toFixed(3)} SOL</span> from creator vault`,
+  ()=>`<span class="c1">holders</span> paid ${Math.floor(Math.random()*900+300)} wallets`,
+  ()=>`<span class="c2">lp</span> added ${(Math.random()*.6+.1).toFixed(3)} SOL + tokens, LP burned`,
+  ()=>`<span class="c4">burn</span> bought ${(Math.random()*4+.5).toFixed(2)}M tokens, sent to burn`,
+  ()=>`<span class="c3">creator</span> ${(Math.random()*.8+.1).toFixed(3)} SOL to treasury`,
+  ()=>`<span class="k">next claim in 60m</span>`
+];
+let li=0;
+function pushLog(){
+  const d=document.createElement('div');
+  const t=new Date(); d.innerHTML=`<span class="k">${t.toTimeString().slice(0,8)}</span> `+logLines[li%logLines.length]();
+  term.appendChild(d); li++;
+  while(term.children.length>18) term.removeChild(term.firstChild);
+}
+for(let i=0;i<12;i++) pushLog();
+if(!reduce) setInterval(pushLog,1400);
+
+/* ---------- modules dial ---------- */
+function ticks(svg,n){
+  let s='<g stroke="currentColor" opacity=".35">';
+  for(let i=0;i<n;i++){const a=i/n*Math.PI*2,c=308,r1=308,r2=i%10===0?286:296;
+    s+=`<line x1="${c+Math.cos(a)*r1}" y1="${c+Math.sin(a)*r1}" x2="${c+Math.cos(a)*r2}" y2="${c+Math.sin(a)*r2}"/>`}
+  svg.innerHTML=s+'</g>'; svg.style.color='var(--ink)';
+}
+ticks($('#ticksOuter'),180); ticks($('#ticksInner'),120);
+const dl=$('#dialList'); let di=0, dialTimer;
+R.forEach((r,i)=>{const b=document.createElement('button');b.textContent=r.name;b.setAttribute('role','tab');b.addEventListener('click',()=>{setDial(i);clearInterval(dialTimer)});dl.appendChild(b)});
+function setDial(i){
+  di=i; const r=R[i];
+  $$('#dialList button').forEach((b,j)=>{b.classList.toggle('on',j===i);b.setAttribute('aria-selected',j===i)});
+  $('#dialPct').textContent=r.def+'%'; $('#dialText').textContent=r.text;
+  $('#dialDot').style.background=`var(${r.color})`; $('#dialCode').textContent='R/0'+(i+1);
+  $('#ticksOuter').style.transform=`rotate(${i*-36}deg)`; $('#ticksInner').style.transform=`rotate(${i*24}deg)`;
+}
+setDial(0);
+if(!reduce) dialTimer=setInterval(()=>setDial((di+1)%R.length),3200);
+
+/* ---------- params ---------- */
+const P=[
+  ['Split ratio','Percentages for each route. They always total 100.','<rect x="10" y="40" width="80" height="20" rx="3" fill="var(--cobalt)"/><rect x="90" y="40" width="50" height="20" rx="3" fill="var(--sky)"/><rect x="140" y="40" width="50" height="20" rx="3" fill="var(--amber)"/><rect x="190" y="40" width="80" height="20" rx="3" fill="var(--slate)"/>'],
+  ['Claim interval','How often fees are claimed and routed, from every 15 minutes to daily.','<circle cx="140" cy="50" r="38" fill="none" stroke="var(--ink)" stroke-width="2"/><path d="M140 22v28l18 12" stroke="var(--cobalt)" stroke-width="3" fill="none" stroke-linecap="round"/>'],
+  ['Minimum balance','Wallets holding less than this share of supply are left out of the holder split.','<g fill="var(--ink-30)"><rect x="40" y="70" width="20" height="10"/><rect x="70" y="65" width="20" height="15"/></g><g fill="var(--cobalt)"><rect x="100" y="45" width="20" height="35"/><rect x="130" y="30" width="20" height="50"/><rect x="160" y="50" width="20" height="30"/><rect x="190" y="20" width="20" height="60"/></g><path d="M30 60h200" stroke="var(--amber)" stroke-width="2" stroke-dasharray="5 4"/>'],
+  ['Exclusions','Pools, curves, the creator wallet and any address you list get no holder payout.','<g fill="none" stroke="var(--ink)" stroke-width="2"><circle cx="90" cy="50" r="18"/><circle cx="140" cy="50" r="18"/><circle cx="190" cy="50" r="18"/></g><path d="M178 38l24 24M202 38l-24 24" stroke="var(--amber)" stroke-width="3"/>'],
+  ['Slippage cap','Buybacks and liquidity adds skip a cycle if price impact would exceed this.','<path d="M30 75C80 75 110 70 140 55S200 25 250 22" fill="none" stroke="var(--ink)" stroke-width="2"/><path d="M30 45h220" stroke="var(--amber)" stroke-width="2" stroke-dasharray="5 4"/><circle cx="160" cy="45" r="5" fill="var(--amber)"/>'],
+  ['LP handling','LP tokens from auto-liquidity are burned forever or locked for a year.','<rect x="100" y="25" width="80" height="50" rx="6" fill="none" stroke="var(--ink)" stroke-width="2"/><path d="M140 34c5 7 10 10 10 18a10 10 0 01-20 0c0-6 5-10 10-18z" fill="var(--amber)"/>']
+];
+const pw=$('#params');
+P.forEach(([t,d,svg])=>{
+  const el=document.createElement('button'); el.className='param'; el.setAttribute('aria-expanded','false');
+  el.innerHTML=`<div class="param-vis"><svg viewBox="0 0 280 100" aria-hidden="true">${svg}</svg><div class="param-desc">${d}</div></div><div class="param-foot"><h3 class="m" style="font-weight:600">${t}</h3><span class="chip"><span class="lab">Open</span><svg><use href="#plus"/></svg></span></div>`;
+  el.addEventListener('click',()=>{const o=el.classList.toggle('open');el.setAttribute('aria-expanded',o);el.querySelector('.lab').textContent=o?'Close':'Open'});
+  pw.appendChild(el);
+});
+
+/* ---------- use cases ---------- */
+const uses=$$('#usesList span');
+function updateUses(){
+  if(current!=='home') return;
+  const mid=innerHeight/2; let best=null,bd=1e9;
+  uses.forEach(u=>{const r=u.getBoundingClientRect();const d=Math.abs(r.top+r.height/2-mid);if(d<bd){bd=d;best=u}});
+  uses.forEach(u=>u.classList.toggle('on',u===best));
+}
+addEventListener('scroll',updateUses,{passive:true});
+
+/* ---------- modules page ---------- */
+const mVis={
+  holders:'<g fill="none" stroke="var(--ink)" stroke-width="2"><circle cx="100" cy="40" r="14" fill="var(--cobalt)" stroke="none"/><path d="M100 54v30M100 84L40 140M100 84l0 56M100 84l60 56"/><circle cx="40" cy="152" r="12"/><circle cx="100" cy="152" r="12"/><circle cx="160" cy="152" r="12"/></g>',
+  lp:'<g fill="none" stroke="var(--ink)" stroke-width="2"><path d="M30 130c25-15 45-15 70 0s45 15 70 0"/><path d="M30 160c25-15 45-15 70 0s45 15 70 0"/></g><rect x="60" y="40" width="34" height="50" rx="4" fill="var(--sky)"/><rect x="106" y="40" width="34" height="50" rx="4" fill="var(--cobalt)"/><path d="M100 95v20" stroke="var(--ink)" stroke-width="2"/>',
+  burn:'<path d="M100 30c18 24 36 36 36 66a36 36 0 01-72 0c0-15 9-24 15-30 0 12 6 18 12 18-3-21 3-36 9-54z" fill="var(--amber)"/><path d="M40 170h120" stroke="var(--ink)" stroke-width="2"/>',
+  creator:'<rect x="40" y="60" width="120" height="90" rx="8" fill="none" stroke="var(--ink)" stroke-width="2"/><path d="M40 82h120" stroke="var(--ink)" stroke-width="2"/><rect x="118" y="108" width="24" height="14" rx="3" fill="var(--slate)"/><path d="M70 60V44h60v16" fill="none" stroke="var(--ink)" stroke-width="2"/>',
+  custom:'<g fill="none" stroke="var(--ink)" stroke-width="2"><path d="M30 100h50l20-50h70M100 150h70M80 100l20 50"/></g><circle cx="170" cy="50" r="8" fill="var(--cobalt)"/><circle cx="170" cy="150" r="8" fill="var(--amber)"/><circle cx="30" cy="100" r="8" fill="var(--ink)"/>'
+};
+$('#mrows').innerHTML=R.map(r=>`<article class="mrow">
+  <div class="mrow-head"><span class="swatch" style="background:var(${r.color})"></span><h2>${r.name}</h2><p class="m" style="color:var(--ink-60)">${r.tag}</p></div>
+  <div class="mrow-body"><p class="m">${r.body}</p><ol class="steps">${r.steps.map(s=>`<li>${s}</li>`).join('')}</ol><div class="knobs">${r.knobs.map(k=>`<span>${k}</span>`).join('')}</div></div>
+  <div class="mrow-vis"><svg viewBox="0 0 200 200" aria-hidden="true">${mVis[r.id]}</svg></div></article>`).join('');
+
+/* ---------- configurator ---------- */
+const keys=R.map(r=>r.id); let vals={}; R.forEach(r=>vals[r.id]=r.def);
+const rw=$('#routes');
+R.forEach(r=>{
+  const d=document.createElement('div'); d.className='route';
+  d.innerHTML=`<span class="dot" style="background:var(${r.color})"></span><label for="s-${r.id}">${r.name}</label><output id="o-${r.id}" for="s-${r.id}">${r.def}%</output><input type="range" id="s-${r.id}" min="0" max="100" step="1" value="${r.def}" style="--fill:var(${r.color})">`;
+  rw.appendChild(d);
+  d.querySelector('input').addEventListener('input',e=>rebalance(r.id,+e.target.value));
+});
+function rebalance(k,v){
+  const others=keys.filter(x=>x!==k), S=others.reduce((a,x)=>a+vals[x],0), Rm=100-v;
+  vals[k]=v;
+  if(S===0){others.forEach((x,i)=>vals[x]=Math.floor(Rm/others.length)+(i<Rm%others.length?1:0))}
+  else{
+    let acc=0; const raw=others.map(x=>({x,v:vals[x]*Rm/S}));
+    raw.forEach(o=>{vals[o.x]=Math.floor(o.v);acc+=vals[o.x]});
+    let left=Rm-acc; raw.sort((a,b)=>(b.v%1)-(a.v%1)).forEach(o=>{if(left>0){vals[o.x]++;left--}});
+  }
+  renderCfg();
+}
+const fmt=n=>n>=1000?'$'+Math.round(n).toLocaleString('en-US'):'$'+n.toFixed(n<10?2:0);
+let drawDonut;
+function renderCfg(){
+  keys.forEach(k=>{const s=$('#s-'+k);s.value=vals[k];s.style.setProperty('--p',vals[k]+'%');$('#o-'+k).textContent=vals[k]+'%'});
+  const vol=Math.max(0,+$('#vol').value||0), rate=Math.max(0,+$('#rate').value||0), daily=vol*rate/100;
+  const iv=+$('#interval').value, perDay=1440/iv;
+  $('#dTotal').textContent=fmt(daily);
+  $('#est').innerHTML=R.map(r=>`<div><span class="dot" style="background:var(${r.color})"></span><span>${r.name}</span><b>${fmt(daily*vals[r.id]/100)}</b></div>`).join('');
+  $('#perClaim').textContent=`${perDay} claims a day at about ${fmt(daily/perDay)} each. Holders above ${$('#minbal').value}% of supply share ${fmt(daily*vals.holders/100/perDay)} per claim.`;
+  $('#lockWarn').textContent=(vals.lp+vals.burn>0&&+$('#slip').value<1)?'A slippage cap under 1% may cause many skipped cycles on thin pools.':'';
+  drawDonut();
+  const cfg={version:1,routes:Object.fromEntries(keys.filter(k=>vals[k]>0).map(k=>[k,vals[k]])),claim_interval_min:iv,
+    holder_split:{min_balance_pct:+$('#minbal').value,exclude_pool:$('#exPool').checked,exclude_creator:$('#exCreator').checked},
+    max_slippage_pct:+$('#slip').value,lp_tokens:$('#lpmode').value,rule_change_delay_h:48};
+  const j=JSON.stringify(cfg,null,2);
+  $('#json').innerHTML=j.replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/"([^"]+)":/g,'<span class="k">"$1"</span>:').replace(/: "([^"]*)"/g,': <span class="st">"$1"</span>').replace(/: (-?[\d.]+|true|false)/g,': <span class="n">$1</span>');
+  window.__cfg=j;
+}
+drawDonut=function(){
+  const C=2*Math.PI*80; let off=0, s=`<circle cx="100" cy="100" r="80" fill="none" stroke="var(--ink-15)" stroke-width="22"/>`;
+  R.forEach(r=>{const len=C*vals[r.id]/100; if(len>0){s+=`<circle cx="100" cy="100" r="80" fill="none" stroke="var(${r.color})" stroke-width="22" stroke-dasharray="${Math.max(len-2,0)} ${C}" stroke-dashoffset="${-off}"/>`;} off+=len});
+  $('#donut').innerHTML=s;
+};
+['vol','rate','interval','minbal','slip','lpmode','exPool','exCreator'].forEach(id=>{$('#'+id).addEventListener('input',renderCfg);$('#'+id).addEventListener('change',renderCfg)});
+renderCfg();
+$('#copyBtn').addEventListener('click',async()=>{
+  try{await navigator.clipboard.writeText(window.__cfg);$('#copyNote').textContent='Config copied.'}
+  catch(e){const r=document.createRange();r.selectNodeContents($('#json'));const s=getSelection();s.removeAllRanges();s.addRange(r);$('#copyNote').textContent='Config selected. Press Ctrl+C or Cmd+C to copy.'}
+});
+
+/* ---------- launch page ---------- */
+const L={core:{creator:0,holders:0,lp:0,burn:0},custom:[],img:null,wallet:null,busy:false};
+const coreRoutes=[
+  {id:'creator',name:'Creator share',sub:'Paid to the wallet below',color:'--slate'},
+  {id:'holders',name:'Holder split',sub:'SOL to wallets holding the coin',color:'--cobalt'},
+  {id:'lp',name:'Auto-liquidity',sub:'Added to the pool after graduation',color:'--sky'},
+  {id:'burn',name:'Buyback and burn',sub:'Bought and burned each cycle',color:'--amber'}
+];
+const esc=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function seedFromCfg(){
+  L.core={creator:vals.creator,holders:vals.holders,lp:vals.lp,burn:vals.burn};
+  L.custom=vals.custom>0?[{address:'',pct:vals.custom,label:''}]:[];
+  renderSplit();
+}
+function renderSplit(){
+  $('#lSplit').innerHTML=coreRoutes.map(r=>`<div class="srow"><span class="dot" style="background:var(${r.color})"></span><label for="ls-${r.id}"><b>${r.name}</b><small>${r.sub}</small></label><span class="pct"><input class="pin" id="ls-${r.id}" type="number" min="0" max="100" step="0.5" value="${L.core[r.id]}" inputmode="decimal"></span></div>`).join('');
+  coreRoutes.forEach(r=>$('#ls-'+r.id).addEventListener('input',e=>{L.core[r.id]=+e.target.value||0;updateLaunch()}));
+  renderCustom();
+}
+function renderCustom(){
+  const box=$('#lCustom');
+  box.innerHTML=L.custom.map((c,i)=>`<div class="crow">
+    <div class="field"><label for="lc-a-${i}">Wallet address</label><input class="pin" id="lc-a-${i}" spellcheck="false" value="${esc(c.address)}" placeholder="Solana address"></div>
+    <div class="field lab"><label for="lc-l-${i}">Label</label><input class="pin" id="lc-l-${i}" value="${esc(c.label)}" placeholder="Marketing"></div>
+    <div class="field"><label for="lc-p-${i}">Share</label><span class="pct"><input class="pin" id="lc-p-${i}" type="number" min="0" max="100" step="0.5" value="${c.pct}"></span></div>
+    <button type="button" class="rm" data-rm="${i}" aria-label="Remove custom wallet ${i+1}"><svg viewBox="0 0 10 10"><use href="#plus"/></svg></button></div>`).join('');
+  L.custom.forEach((c,i)=>{
+    $('#lc-a-'+i).addEventListener('input',e=>{c.address=e.target.value.trim();updateLaunch()});
+    $('#lc-l-'+i).addEventListener('input',e=>{c.label=e.target.value;updateLaunch()});
+    $('#lc-p-'+i).addEventListener('input',e=>{c.pct=+e.target.value||0;updateLaunch()});
+  });
+  box.querySelectorAll('[data-rm]').forEach(b=>b.addEventListener('click',()=>{L.custom.splice(+b.dataset.rm,1);renderCustom()}));
+  $('#lAddCustom').disabled=L.custom.length>=7;
+  updateLaunch();
+}
+const B58=/^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+function launchParams(){
+  const bps=v=>Math.round(v*100);
+  return {
+    name:$('#lName').value.trim(),
+    symbol:$('#lSym').value.trim().toUpperCase(),
+    description:$('#lDesc').value.trim(),
+    image:L.img,
+    website:$('#lWeb').value.trim()||undefined,
+    twitter:$('#lX').value.trim()||undefined,
+    telegram:$('#lTg').value.trim()||undefined,
+    devBuySol:Math.max(0,+$('#lDev').value||0),
+    split:{creatorBps:bps(L.core.creator),holdersBps:bps(L.core.holders),lpBps:bps(L.core.lp),burnBps:bps(L.core.burn),
+      custom:L.custom.map(c=>({address:c.address,bps:bps(c.pct),label:c.label}))},
+    creatorPayout:$('#lPayout').value.trim()||undefined,
+    rules:{minHolderTokens:Math.max(0,+$('#lMin').value||0),maxSlippageBps:Math.round((+$('#lSlip').value||0)*100),
+      lpMode:$('#lLp').value,claimIntervalSecs:+$('#lInt').value,excludeCreator:$('#lExCreator').checked}
+  };
+}
+function launchErrors(p){
+  const e=[];
+  if(!p.name) e.push('Add a name.');
+  if(!p.symbol) e.push('Add a ticker.');
+  if(!p.image) e.push('Choose an image.');
+  else if(p.image.size>4*1024*1024) e.push('The image is over 4 MB. Choose a smaller file.');
+  const total=p.split.creatorBps+p.split.holdersBps+p.split.lpBps+p.split.burnBps+p.split.custom.reduce((a,c)=>a+c.bps,0);
+  if(total!==10000) e.push(`The fee split totals ${+(total/100).toFixed(2)}%. Adjust it to total 100%.`);
+  p.split.custom.forEach((c,i)=>{
+    if(!B58.test(c.address)) e.push(`Custom wallet ${i+1} needs a valid Solana address.`);
+    if(c.bps<=0) e.push(`Custom wallet ${i+1} needs a share above 0%.`);
+  });
+  if(p.creatorPayout&&!B58.test(p.creatorPayout)) e.push('The creator payout address is not a valid Solana address.');
+  const recipients=(p.split.creatorBps>0?1:0)+((p.split.holdersBps+p.split.lpBps+p.split.burnBps)>0?1:0)+p.split.custom.length;
+  if(recipients>10) e.push('pump.fun allows at most 10 fee recipients.');
+  if(p.rules.maxSlippageBps<10||p.rules.maxSlippageBps>1000) e.push('Max slippage must be between 0.1% and 10%.');
+  return e;
+}
+function updateLaunch(){
+  if(!$('#lForm')) return;
+  const p=launchParams();
+  $('#lNameC').textContent=p.name.length+'/32';
+  $('#lSymC').textContent=p.symbol.length+'/13';
+  $('#pName').textContent=p.name||'Your coin';
+  $('#pSym').textContent='$'+(p.symbol||'TICKER');
+  const items=[...coreRoutes.map(r=>({n:r.name,c:`var(${r.color})`,v:L.core[r.id]})),...L.custom.map((c,i)=>({n:c.label||`Custom wallet ${i+1}`,c:'var(--ink-60)',v:c.pct}))].filter(x=>x.v>0);
+  const tot=items.reduce((a,x)=>a+x.v,0);
+  $('#pBar').innerHTML=items.map(x=>`<i style="width:${x.v/Math.max(tot,100)*100}%;background:${x.c}"></i>`).join('');
+  $('#pList').innerHTML=items.length?items.map(x=>`<div><span class="dot" style="background:${x.c}"></span><span>${esc(x.n)}</span><b>${+x.v.toFixed(2)}%</b></div>`).join(''):'<div><span></span><span style="color:var(--ink-60)">Set the split to see it here.</span><b></b></div>';
+  const t=$('#lTotal'); const totR=Math.round(tot*100)/100;
+  $('#lTotalV').textContent=totR+'%'; t.classList.toggle('bad',totR!==100); t.classList.toggle('good',totR===100);
+  const coded=p.split.holdersBps+p.split.lpBps+p.split.burnBps;
+  const tx=[`<li><span><b>Create the coin</b> on pump.fun${p.devBuySol>0?` and buy ${p.devBuySol} SOL of it`:''}.</span></li>`];
+  tx.push(coded>0?`<li><span><b>Set up the CODED router</b> for holders, liquidity and burn (${coded/100}% of fees), and turn on fee sharing.</span></li>`:`<li><span><b>Turn on fee sharing</b> for the coin.</span></li>`);
+  tx.push(`<li><span><b>Lock the split.</b> Sets every recipient and permanently gives up the right to change them.</span></li>`);
+  $('#pTx').innerHTML=tx.join('');
+  const errs=launchErrors(p);
+  $('#lErrs').innerHTML=errs.map(x=>`<li>${esc(x)}</li>`).join('');
+  $('#lGo').disabled=L.busy||errs.length>0||!$('#lAck').checked||!L.wallet;
+}
+['lName','lSym','lDesc','lWeb','lX','lTg','lDev','lPayout','lMin','lSlip','lInt','lLp','lExCreator','lAck'].forEach(id=>{$('#'+id).addEventListener('input',updateLaunch);$('#'+id).addEventListener('change',updateLaunch)});
+$('#lImg').addEventListener('change',e=>{
+  const f=e.target.files&&e.target.files[0]; L.img=f||null;
+  [$('#lThumb'),$('#pThumb')].forEach((el,i)=>{el.textContent=f?'':(i?'Image':'No image'); if(f){const im=new Image();im.alt='';im.src=URL.createObjectURL(f);el.appendChild(im)}});
+  updateLaunch();
+});
+$('#lFromCfg').addEventListener('click',seedFromCfg);
+$('#lAddCustom').addEventListener('click',()=>{if(L.custom.length<7){L.custom.push({address:'',pct:0,label:''});renderCustom()}});
+function note(msg){const n=$('#lNote');n.hidden=!msg;n.textContent=msg||''}
+$('#lConnect').addEventListener('click',async()=>{
+  if(!window.CODED){note('Wallet signing runs on the live CODED site, where the launcher script is loaded. In this preview you can fill in and review everything.');return}
+  try{const pk=await window.CODED.connect();L.wallet=pk;const w=$('#lWallet');w.classList.add('on');w.querySelector('span').textContent=pk.slice(0,4)+'…'+pk.slice(-4);$('#lConnect').textContent='Wallet connected';note('');}
+  catch(err){note(err.message||'The wallet did not connect. Unlock it and try again.')}
+  updateLaunch();
+});
+$('#lGo').addEventListener('click',async()=>{
+  const p=launchParams(); if(launchErrors(p).length||!window.CODED) return;
+  L.busy=true; updateLaunch(); note('');
+  const log=$('#lLog'); log.classList.add('on'); log.innerHTML='';
+  const say=m=>{const d=document.createElement('div');d.textContent=new Date().toTimeString().slice(0,8)+'  '+m;log.appendChild(d);log.scrollTop=log.scrollHeight};
+  try{
+    const r=await window.CODED.launch(p,say);
+    $('#lDone').innerHTML=`<p class="l" style="margin-bottom:8px">${esc(p.name)} is live.</p><p style="margin:0 0 6px">Coin address: <code>${esc(r.mint)}</code></p>${r.vault?`<p style="margin:0 0 10px">CODED vault: <code>${esc(r.vault)}</code></p>`:''}<p style="margin:0"><a href="https://pump.fun/coin/${encodeURIComponent(r.mint)}" target="_blank" rel="noopener">Open on pump.fun</a></p>`;
+    $('#lDone').classList.add('on'); $('#lForm').querySelectorAll('input,select,textarea,button').forEach(x=>x.disabled=true);
+  }catch(err){say('Stopped: '+(err.message||'unknown error'));note('Steps after the failed one were not sent. Fix the issue in the log and launch again.')}
+  L.busy=false; updateLaunch();
+});
+seedFromCfg();
+
+/* ---------- hero flow canvas ---------- */
+const cv=$('#flow'), ctx=cv.getContext('2d'); let W,H,dpr,parts=[],raf=null;
+const flowR=[{c:'#4F7BFF',w:30,l:'Holders'},{c:'#4FB8F0',w:20,l:'Liquidity'},{c:'#FF9F1C',w:20,l:'Burn'},{c:'#8792A8',w:30,l:'Creator'}];
+function size(){dpr=Math.min(devicePixelRatio||1,2);W=cv.clientWidth;H=cv.clientHeight;cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0)}
+function path(i){
+  const mob=W<700, sx=W*0.04, sy=H*(mob?0.22:0.3), ex=W*0.97, top=H*(mob?0.1:0.12), span=H*(mob?0.26:0.36);
+  const ey=top+span*i/3;
+  return [sx,sy, W*0.38,sy, W*0.5,ey, ex,ey];
+}
+function pt(p,t){const u=1-t;return[u*u*u*p[0]+3*u*u*t*p[2]+3*u*t*t*p[4]+t*t*t*p[6],u*u*u*p[1]+3*u*u*t*p[3]+3*u*t*t*p[5]+t*t*t*p[7]]}
+function pick(){let r=Math.random()*100,a=0;for(let i=0;i<4;i++){a+=flowR[i].w;if(r<a)return i}return 3}
+function spawn(){parts.push({i:pick(),t:0,v:.0015+Math.random()*.0025,s:Math.random()<.8?2:3.5})}
+function frame(){
+  ctx.clearRect(0,0,W,H);
+  ctx.lineWidth=1;
+  flowR.forEach((r,i)=>{const p=path(i);ctx.strokeStyle='rgba(228,233,238,.12)';ctx.beginPath();ctx.moveTo(p[0],p[1]);ctx.bezierCurveTo(p[2],p[3],p[4],p[5],p[6],p[7]);ctx.stroke();
+    ctx.fillStyle='rgba(228,233,238,.7)';ctx.font='600 13px Archivo, Arial, sans-serif';ctx.textAlign='right';ctx.fillText(r.l+'  '+r.w+'%',p[6]-6,p[7]-8)});
+  const p0=path(0);ctx.fillStyle='rgba(228,233,238,.7)';ctx.textAlign='left';ctx.fillText('Creator fees',p0[0],p0[1]-12);
+  ctx.fillStyle='#E4E9EE';ctx.fillRect(p0[0]-3,p0[1]-3,6,6);
+  if(!reduce){for(let k=0;k<3;k++)spawn()}
+  parts=parts.filter(q=>q.t<1);
+  parts.forEach(q=>{if(!reduce)q.t+=q.v;const[x,y]=pt(path(q.i),q.t);ctx.fillStyle=flowR[q.i].c;ctx.globalAlpha=Math.min(1,q.t*6)*(1-q.t*.4);ctx.fillRect(x,y-q.s/2,q.s,q.s)});
+  ctx.globalAlpha=1;
+  raf=reduce?null:requestAnimationFrame(frame);
+}
+function startFlow(){size();if(reduce){for(let k=0;k<400;k++){spawn();parts[parts.length-1].t=Math.random()}frame();return}if(!raf)raf=requestAnimationFrame(frame)}
+function stopFlow(){if(raf)cancelAnimationFrame(raf);raf=null}
+addEventListener('resize',()=>{if(current==='home'){size();if(reduce)frame()}});
+
+/* ---------- boot ---------- */
+setTheme(saved);
+route();
+setTimeout(()=>{$('#loader').classList.add('done');document.body.classList.add('ready')},reduce?0:1000);
+})();
+</script>
+<script src="/coded-launch.js" defer></script>
+</body>
+</html>

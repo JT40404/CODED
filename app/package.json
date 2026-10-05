@@ -1,0 +1,29 @@
+{
+  "name": "coded-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "crank": "tsx src/crank.ts",
+    "test:merkle": "tsx src/test-merkle.ts",
+    "build:web": "node build-web.cjs"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.31.1",
+    "@noble/hashes": "^1.5.0",
+    "@pump-fun/pump-sdk": "latest",
+    "@pump-fun/pump-swap-sdk": "latest",
+    "@solana/spl-token": "^0.4.9",
+    "@solana/web3.js": "^1.98.0",
+    "bn.js": "^5.2.1",
+    "buffer": "^6.0.3",
+    "esbuild": "^0.28.2"
+  },
+  "devDependencies": {
+    "@types/bn.js": "^5.1.6",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "esbuild": "^0.24.0"
+  }
+}
