@@ -80,4 +80,14 @@ pub enum CodedError {
     VaultLamportsLow,
     #[msg("Parameter out of range")]
     BadParam,
+    #[msg("This coin's pump.fun fee split doesn't include the protocol share yet; call verify_protocol_share")]
+    ProtocolNotVerified,
+    #[msg("The pump.fun fee split is missing the protocol share or it is too small")]
+    ProtocolShareMissing,
+    #[msg("pump.fun sharing config failed verification")]
+    BadSharingConfig,
+    #[msg("The pump.fun fee split is still editable; lock it before verifying")]
+    SharingNotLocked,
+    #[msg("Nothing to verify for this router")]
+    ProtocolNotRequired,
 }

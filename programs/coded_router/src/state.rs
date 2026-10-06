@@ -20,6 +20,14 @@ pub struct Global {
     #[max_len(16)]
     pub allowed: Vec<AllowedCpi>,
     pub bump: u8,
+    /// The protocol token every launch pays into (Pubkey::default() = off).
+    pub protocol_mint: Pubkey,
+    /// Router for the protocol token, seeds [router, mint, global].
+    pub protocol_router: Pubkey,
+    /// That router's vault: the address added to every new coin's pump.fun split.
+    pub protocol_vault: Pubkey,
+    /// Share of every new coin's creator fees owed to the protocol vault.
+    pub protocol_fee_bps: u16,
 }
 
 /// A (program, instruction discriminator) pair the vault may sign for.
@@ -112,6 +120,13 @@ pub struct Router {
 
     pub bump: u8,
     pub vault_bump: u8,
+
+    /// Protocol share this coin owes, snapshotted at creation (0 = none).
+    pub protocol_fee_bps: u16,
+    /// Vault the protocol share must be paid to, snapshotted at creation.
+    pub protocol_vault: Pubkey,
+    /// Set once pump.fun's locked split is confirmed to include the share.
+    pub protocol_verified: bool,
 }
 
 impl Router {

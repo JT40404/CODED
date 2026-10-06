@@ -53,6 +53,51 @@ pub struct InitializeRouter<'info> {
     pub system_program: Program<'info, System>,
 }
 
+/// The protocol token's own router: seeded with the Global account instead
+/// of a wallet so it can't collide with a normal router for the same mint.
+#[derive(Accounts)]
+pub struct InitProtocolRouter<'info> {
+    #[account(mut)]
+    pub admin: Signer<'info>,
+    #[account(seeds = [GLOBAL_SEED], bump = global.bump, has_one = admin @ CodedError::Unauthorized)]
+    pub global: Box<Account<'info, Global>>,
+    pub mint: Box<InterfaceAccount<'info, Mint>>,
+    #[account(
+        init,
+        payer = admin,
+        space = 8 + Router::INIT_SPACE,
+        seeds = [ROUTER_SEED, mint.key().as_ref(), global.key().as_ref()],
+        bump
+    )]
+    pub router: Box<Account<'info, Router>>,
+    #[account(mut, seeds = [VAULT_SEED, router.key().as_ref()], bump)]
+    pub vault: SystemAccount<'info>,
+    /// CHECK: verified in venue::read_reserves
+    pub venue_a: UncheckedAccount<'info>,
+    /// CHECK: verified in venue::read_reserves
+    pub venue_b: UncheckedAccount<'info>,
+    /// CHECK: verified in venue::read_reserves
+    pub venue_c: UncheckedAccount<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct SetProtocol<'info> {
+    pub admin: Signer<'info>,
+    #[account(mut, seeds = [GLOBAL_SEED], bump = global.bump, has_one = admin @ CodedError::Unauthorized)]
+    pub global: Box<Account<'info, Global>>,
+    #[account(seeds = [ROUTER_SEED, protocol_router.mint.as_ref(), global.key().as_ref()], bump = protocol_router.bump)]
+    pub protocol_router: Box<Account<'info, Router>>,
+}
+
+#[derive(Accounts)]
+pub struct VerifyProtocolShare<'info> {
+    #[account(mut)]
+    pub router: Account<'info, Router>,
+    /// CHECK: pump.fun sharing config; checked in handler.
+    pub sharing_config: UncheckedAccount<'info>,
+}
+
 #[derive(Accounts)]
 pub struct AuthorityOnly<'info> {
     pub authority: Signer<'info>,

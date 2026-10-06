@@ -34,6 +34,14 @@ export function routerPda(mint: PublicKey, authority: PublicKey): PublicKey {
   )[0];
 }
 
+/** The protocol token's router: seeded with Global, not a wallet. */
+export function protocolRouterPda(mint: PublicKey): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [enc("router"), mint.toBuffer(), globalPda().toBuffer()],
+    CODED_PROGRAM_ID,
+  )[0];
+}
+
 export function vaultPda(router: PublicKey): PublicKey {
   return PublicKey.findProgramAddressSync([enc("vault"), router.toBuffer()], CODED_PROGRAM_ID)[0];
 }

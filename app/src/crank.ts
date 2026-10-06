@@ -217,6 +217,16 @@ async function vaultSetupIxs(c: Ctx): Promise<TransactionInstruction[]> {
 }
 
 // ------------------------------------------------------------------ steps
+/** Routers that owe the protocol share can't route until it's verified. */
+async function stepVerify(c: Ctx): Promise<boolean> {
+  if (c.r.protocolVerified) return true;
+  const ix = await program.methods
+    .verifyProtocolShare()
+    .accountsPartial({ router: c.router, sharingConfig: feeSharingConfigPda(c.mint) })
+    .instruction();
+  return (await send([ix], "verify-protocol", 100_000)) !== null;
+}
+
 async function stepClaim(c: Ctx) {
   const now = Math.floor(Date.now() / 1000);
   if (now < c.r.lastInflowTs.toNumber() + c.r.config.claimIntervalSecs.toNumber()) return;
@@ -532,6 +542,8 @@ async function tick() {
   for (const { publicKey } of routers) {
     try {
       let c = await loadCtx(publicKey);
+      if (!(await stepVerify(c))) continue; // split doesn't pay the protocol share
+      c = await loadCtx(publicKey);
       await stepClaim(c);
       await stepObserve(c);
       c = await loadCtx(publicKey);

@@ -6,6 +6,7 @@ use anchor_lang::prelude::*;
 pub const PUMP_PROGRAM_ID: Pubkey = pubkey!("6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P");
 pub const PUMP_AMM_PROGRAM_ID: Pubkey = pubkey!("pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA");
 pub const WSOL_MINT: Pubkey = pubkey!("So11111111111111111111111111111111111111112");
+pub const PUMP_FEE_PROGRAM_ID: Pubkey = pubkey!("pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ");
 
 // ---------------------------------------------------------------------------
 // Seeds
@@ -20,6 +21,7 @@ pub const PUMP_BONDING_CURVE_SEED: &[u8] = b"bonding-curve";
 pub const PUMP_POOL_AUTHORITY_SEED: &[u8] = b"pool-authority";
 pub const PUMP_AMM_POOL_SEED: &[u8] = b"pool";
 pub const CANONICAL_POOL_INDEX: u16 = 0;
+pub const PUMP_SHARING_CONFIG_SEED: &[u8] = b"sharing-config";
 
 // ---------------------------------------------------------------------------
 // Protocol parameters
@@ -59,6 +61,20 @@ pub const BC_COMPLETE_OFFSET: usize = 48;
 /// SPL Token / Token-2022 base layouts.
 pub const TOKEN_ACCOUNT_AMOUNT_OFFSET: usize = 64;
 pub const MINT_SUPPLY_OFFSET: usize = 36;
+
+/// Protocol fee: share of ALL creator fees sent to the protocol router,
+/// which buys back and burns the protocol token.
+pub const MAX_PROTOCOL_FEE_BPS: u16 = 500; // 5% hard cap
+
+// pump fees program SharingConfig layout (from pump's IDL):
+// [disc 8][bump u8][version u8][status u8][mint 32][admin 32]
+// [admin_revoked bool][shareholders: u32 len + n * (address 32, share_bps u16)]
+pub const SHARING_CONFIG_DISC: [u8; 8] = [216, 74, 9, 0, 56, 140, 93, 75];
+pub const SC_MINT_OFFSET: usize = 11;
+pub const SC_ADMIN_REVOKED_OFFSET: usize = 75;
+pub const SC_SHAREHOLDERS_LEN_OFFSET: usize = 76;
+pub const SC_SHAREHOLDERS_OFFSET: usize = 80;
+pub const SC_SHAREHOLDER_SIZE: usize = 34;
 
 /// Venue identifiers.
 pub const VENUE_BONDING_CURVE: u8 = 0;

@@ -26,6 +26,7 @@ import {
   OnlinePumpSdk,
   PUMP_SDK,
   bondingCurvePda,
+  feeSharingConfigPda,
   getBuyTokenAmountFromSolAmount,
   type Shareholder,
 } from "@pump-fun/pump-sdk";
@@ -87,12 +88,50 @@ export type UploadMetadata = (input: {
 
 export interface LaunchResult {
   mint: PublicKey;
+  /** Share of all creator fees paid to the protocol token's buyback (bps). */
+  protocolFeeBps: number;
   router: PublicKey | null;
   vault: PublicKey | null;
   signatures: string[];
 }
 
-export function validateLaunch(p: LaunchParams): string[] {
+export interface ProtocolFee {
+  vault: PublicKey;
+  bps: number;
+}
+
+/** Reads the protocol fee from Global. null = off. */
+export async function fetchProtocolFee(program: Program): Promise<ProtocolFee | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const g = await (program.account as any).global.fetchNullable(globalPda());
+  if (!g) return null;
+  const vault = g.protocolVault as PublicKey;
+  const bps = Number(g.protocolFeeBps);
+  return vault.equals(PublicKey.default) || bps === 0 ? null : { vault, bps };
+}
+
+/**
+ * Scales the creator's split (which totals 10000) down to make room for the
+ * protocol share. Rounding dust goes to the largest recipient.
+ */
+export function withProtocolShare(
+  shares: Map<string, number>,
+  fee: ProtocolFee | null,
+): Shareholder[] {
+  const entries = [...shares.entries()];
+  if (!fee) return entries.map(([a, b]) => ({ address: new PublicKey(a), shareBps: b }));
+  const room = BPS - fee.bps;
+  const scaled = entries.map(([a, b]) => ({ address: new PublicKey(a), shareBps: Math.floor((b * room) / BPS) }));
+  const dust = room - scaled.reduce((s, x) => s + x.shareBps, 0);
+  scaled.sort((x, y) => y.shareBps - x.shareBps);
+  if (scaled.length) scaled[0].shareBps += dust;
+  const existing = scaled.find((x) => x.address.equals(fee.vault));
+  if (existing) existing.shareBps += fee.bps;
+  else scaled.push({ address: fee.vault, shareBps: fee.bps });
+  return scaled.filter((x) => x.shareBps > 0);
+}
+
+export function validateLaunch(p: LaunchParams, protocolFeeOn = true): string[] {
   const errs: string[] = [];
   if (!p.name.trim() || p.name.length > 32) errs.push("Name must be 1 to 32 characters.");
   if (!p.symbol.trim() || p.symbol.length > 13) errs.push("Ticker must be 1 to 13 characters.");
@@ -100,7 +139,8 @@ export function validateLaunch(p: LaunchParams): string[] {
   const total = s.creatorBps + s.holdersBps + s.lpBps + s.burnBps + s.custom.reduce((a, c) => a + c.bps, 0);
   if (total !== BPS) errs.push(`Fee split must total 100%. It totals ${total / 100}%.`);
   const recipients = (s.creatorBps > 0 ? 1 : 0) + (s.holdersBps + s.lpBps + s.burnBps > 0 ? 1 : 0) + s.custom.length;
-  if (recipients > 10) errs.push("pump.fun allows at most 10 fee recipients.");
+  const max = protocolFeeOn ? 9 : 10;
+  if (recipients > max) errs.push(`At most ${max} fee recipients are allowed${protocolFeeOn ? " (pump.fun's limit of 10, minus the protocol share)" : ""}.`);
   for (const c of s.custom) {
     if (c.bps <= 0) errs.push("Each custom route needs a share above 0%.");
     try { new PublicKey(c.address); } catch { errs.push(`Custom route address is not valid: ${c.address}`); }
@@ -172,7 +212,8 @@ export async function launchToken(args: {
 }): Promise<LaunchResult> {
   const { connection, wallet, program, params: p, uploadMetadata } = args;
   const status = args.onStatus ?? (() => {});
-  const errs = validateLaunch(p);
+  const protocolFee = await fetchProtocolFee(program);
+  const errs = validateLaunch(p, protocolFee !== null);
   if (errs.length) throw new Error(errs.join(" "));
 
   const user = wallet.publicKey;
@@ -288,10 +329,7 @@ export async function launchToken(args: {
   add(creatorPayout, p.split.creatorBps);
   for (const c of p.split.custom) add(new PublicKey(c.address), c.bps);
 
-  const newShareholders: Shareholder[] = [...shareholders.entries()].map(([address, shareBps]) => ({
-    address: new PublicKey(address),
-    shareBps,
-  }));
+  const newShareholders = withProtocolShare(shareholders, protocolFee);
 
   // If 100% goes to the launching wallet there is nothing to configure.
   const needsSharing = !(newShareholders.length === 1 && newShareholders[0].address.equals(user));
@@ -310,6 +348,16 @@ export async function launchToken(args: {
       quoteTokenProgram: TOKEN_PROGRAM_ID,
     });
     txs.push(await toTx(connection, user, [update], 400_000, priority));
+
+    // Confirms on-chain that the locked split pays the protocol share, so
+    // the router can start routing straight away.
+    if (router && protocolFee) {
+      const verify = await program.methods
+        .verifyProtocolShare()
+        .accountsPartial({ router, sharingConfig: feeSharingConfigPda(mint) })
+        .instruction();
+      txs.push(await toTx(connection, user, [verify], 100_000, priority));
+    }
   }
 
   txs[0].sign([mintKp]);
@@ -319,7 +367,7 @@ export async function launchToken(args: {
 
   const signatures: string[] = [];
   for (let i = 0; i < signed.length; i++) {
-    status(i === 0 ? "Creating coin" : i === 1 ? "Setting up fee routing" : "Locking the fee split");
+    status(["Creating coin", "Setting up fee routing", "Locking the fee split", "Confirming the protocol share"][i] ?? "Sending");
     const sig = await connection.sendTransaction(signed[i], { skipPreflight: false, maxRetries: 3 });
     await confirm(connection, sig);
     signatures.push(sig);
@@ -357,5 +405,5 @@ export async function launchToken(args: {
   }
 
   status("Launched");
-  return { mint, router, vault, signatures };
+  return { mint, protocolFeeBps: protocolFee?.bps ?? 0, router, vault, signatures };
 }

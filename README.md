@@ -45,6 +45,26 @@ Launch page goes live.
 3. **Config changes**: `propose_config` → wait 48h → `apply_config`.
    `set_authority(default)` renounces and freezes the ratios.
 
+## Protocol fee (CODED token buyback)
+
+1% of the creator fees of every coin launched through CODED buys back and
+burns your main token.
+
+- After you launch the main token, run once:
+  `RPC_URL=... ADMIN_KEYPAIR=... MAIN_MINT=<CA> PROTOCOL_FEE_BPS=100 npx tsx app/src/setup-protocol.ts`
+  This creates a dedicated router for the main token (100% buyback and burn)
+  and stores its mint, router, vault and the fee in Global.
+- The launcher reads Global, scales the creator's split to 99% and adds the
+  protocol vault at 1% to the pump.fun split, which pump.fun then locks.
+- Each router snapshots the fee and vault when it's created and can't run
+  `account_inflows` until `verify_protocol_share` confirms the locked pump.fun
+  split pays that vault at least that much. The launcher sends the
+  verification as its last transaction; the crank retries it.
+- The crank treats the protocol router like any other: it claims, then buys
+  and burns the main token every cycle.
+- Coins launched before `setup-protocol` owe nothing. `set_protocol` with a
+  new fee only affects coins launched afterwards (hard cap 5%).
+
 ## Safety model
 
 The vault PDA signs exactly one pump.fun instruction per call, and only if

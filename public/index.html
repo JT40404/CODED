@@ -737,7 +737,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:5px;bac
     <details><summary>How are holder payouts calculated?<span class="pl"><svg><use href="#plus"/></svg></span></summary><p>At each claim, CODED takes a snapshot of balances above your minimum threshold, removes excluded accounts, and pays each wallet its share of the holder route in proportion to its balance.</p></details>
     <details><summary>Can I change the split later?<span class="pl"><svg><use href="#plus"/></svg></span></summary><p>Partly. The share going to CODED, you and any custom wallets is permanent from launch. Inside CODED's share you can rebalance holders, liquidity and burn, and every change waits 48 hours in public first.</p></details>
     <details><summary>Is CODED part of pump.fun?<span class="pl"><svg><use href="#plus"/></svg></span></summary><p>No. CODED is an independent tool that works with the creator fees pump.fun pays out. It is not affiliated with or endorsed by pump.fun.</p></details>
-    <details><summary>Does CODED charge a fee?<span class="pl"><svg><use href="#plus"/></svg></span></summary><p>Pricing will be published before launch. Whatever it is, it will appear as its own line in every public config so holders can see it.</p></details>
+    <details><summary>Does CODED charge a fee?<span class="pl"><svg><use href="#plus"/></svg></span></summary><p>Yes: 1% of the creator fees of every coin launched through CODED is used to buy back and burn the CODED token. It's written into each coin's pump.fun fee split at launch, so it's public and permanent, and the CODED program checks it on-chain before routing any of that coin's fees.</p></details>
   </div>
 </section>
 
@@ -780,11 +780,12 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:5px;bac
 
       <div class="panel">
         <div class="lbl-row"><h3>Fee split</h3><button type="button" class="tagbtn" id="lFromCfg">Use configurator split</button></div>
-        <p class="s">Shares of every creator fee this coin earns. Permanent once launched.</p>
+        <p class="s">How this coin's creator fees split, after the 1% protocol share. Permanent once launched.</p>
         <div id="lSplit"></div>
         <div id="lCustom"></div>
         <button type="button" class="btn ghost" id="lAddCustom" style="margin-top:10px">Add a custom wallet <span class="sq"><svg viewBox="0 0 10 10" style="fill:#fff;color:#fff"><use href="#plus"/></svg></span></button>
         <div class="total" id="lTotal" role="status"><span>Total</span><span id="lTotalV">100%</span></div>
+        <p class="note-box" style="margin-top:8px">1% of all this coin's creator fees buys back and burns the CODED token. It's added to the pump.fun split automatically; your split above covers the other 99%.</p>
         <div class="field" style="margin-top:14px"><label for="lPayout">Creator share goes to</label><input id="lPayout" spellcheck="false" placeholder="Your connected wallet"><small>Leave empty to use the wallet you launch from. A team multisig is a good choice.</small></div>
       </div>
 
@@ -1118,7 +1119,7 @@ function launchErrors(p){
   });
   if(p.creatorPayout&&!B58.test(p.creatorPayout)) e.push('The creator payout address is not a valid Solana address.');
   const recipients=(p.split.creatorBps>0?1:0)+((p.split.holdersBps+p.split.lpBps+p.split.burnBps)>0?1:0)+p.split.custom.length;
-  if(recipients>10) e.push('pump.fun allows at most 10 fee recipients.');
+  if(recipients>9) e.push('At most 9 fee recipients are allowed (pump.fun\'s limit of 10, minus the protocol share).');
   if(p.rules.maxSlippageBps<10||p.rules.maxSlippageBps>1000) e.push('Max slippage must be between 0.1% and 10%.');
   return e;
 }
@@ -1132,13 +1133,14 @@ function updateLaunch(){
   const items=[...coreRoutes.map(r=>({n:r.name,c:`var(${r.color})`,v:L.core[r.id]})),...L.custom.map((c,i)=>({n:c.label||`Custom wallet ${i+1}`,c:'var(--ink-60)',v:c.pct}))].filter(x=>x.v>0);
   const tot=items.reduce((a,x)=>a+x.v,0);
   $('#pBar').innerHTML=items.map(x=>`<i style="width:${x.v/Math.max(tot,100)*100}%;background:${x.c}"></i>`).join('');
-  $('#pList').innerHTML=items.length?items.map(x=>`<div><span class="dot" style="background:${x.c}"></span><span>${esc(x.n)}</span><b>${+x.v.toFixed(2)}%</b></div>`).join(''):'<div><span></span><span style="color:var(--ink-60)">Set the split to see it here.</span><b></b></div>';
+  $('#pList').innerHTML=(items.length?items.map(x=>`<div><span class="dot" style="background:${x.c}"></span><span>${esc(x.n)}</span><b>${+(x.v*0.99).toFixed(2)}%</b></div>`).join(''):'<div><span></span><span style="color:var(--ink-60)">Set the split to see it here.</span><b></b></div>')+'<div><span class="dot" style="background:var(--ink)"></span><span>CODED token buyback</span><b>1%</b></div>';
   const t=$('#lTotal'); const totR=Math.round(tot*100)/100;
   $('#lTotalV').textContent=totR+'%'; t.classList.toggle('bad',totR!==100); t.classList.toggle('good',totR===100);
   const coded=p.split.holdersBps+p.split.lpBps+p.split.burnBps;
   const tx=[`<li><span><b>Create the coin</b> on pump.fun${p.devBuySol>0?` and buy ${p.devBuySol} SOL of it`:''}.</span></li>`];
   tx.push(coded>0?`<li><span><b>Set up the CODED router</b> for holders, liquidity and burn (${coded/100}% of fees), and turn on fee sharing.</span></li>`:`<li><span><b>Turn on fee sharing</b> for the coin.</span></li>`);
-  tx.push(`<li><span><b>Lock the split.</b> Sets every recipient and permanently gives up the right to change them.</span></li>`);
+  tx.push(`<li><span><b>Lock the split.</b> Sets every recipient, including the 1% protocol share, and permanently gives up the right to change them.</span></li>`);
+  if(coded>0) tx.push(`<li><span><b>Confirm the protocol share</b> on-chain so the router can start routing.</span></li>`);
   $('#pTx').innerHTML=tx.join('');
   const errs=launchErrors(p);
   $('#lErrs').innerHTML=errs.map(x=>`<li>${esc(x)}</li>`).join('');

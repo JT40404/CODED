@@ -27,6 +27,7 @@ pub mod contexts;
 pub mod errors;
 pub mod guard;
 pub mod merkle;
+pub mod sharing;
 pub mod state;
 pub mod venue;
 
@@ -109,6 +110,64 @@ fn wrap<'info>(
     spl::sync_native(CpiContext::new(spl_token.clone(), SyncNative { account: wsol.clone() }))
 }
 
+#[allow(clippy::too_many_arguments)]
+fn fill_router(
+    r: &mut Router,
+    mint: Pubkey,
+    authority: Pubkey,
+    token_program: Pubkey,
+    config: RouteConfig,
+    ref_price: u128,
+    now: i64,
+    bump: u8,
+    vault_bump: u8,
+    protocol_fee_bps: u16,
+    protocol_vault: Pubkey,
+) {
+    r.mint = mint;
+    r.authority = authority;
+    r.token_program = token_program;
+    r.config = config;
+    r.pending = None;
+    r.pending_eta = 0;
+    r.holders_bucket = 0;
+    r.lp_bucket = 0;
+    r.burn_bucket = 0;
+    r.reserved_claims = 0;
+    r.lp_token_inventory = 0;
+    r.lp_mint = Pubkey::default();
+    r.lp_locked_amount = 0;
+    r.lp_locked_until = 0;
+    r.ref_price_q32 = ref_price;
+    r.last_observe_ts = now;
+    r.last_inflow_ts = 0;
+    r.next_epoch = 0;
+    r.total_inflow = 0;
+    r.total_tokens_burned = 0;
+    r.total_lp_quote_added = 0;
+    r.total_paid_holders = 0;
+    r.bump = bump;
+    r.vault_bump = vault_bump;
+    r.protocol_fee_bps = protocol_fee_bps;
+    r.protocol_vault = protocol_vault;
+    r.protocol_verified = protocol_fee_bps == 0;
+}
+
+fn fund_vault<'info>(
+    system: &AccountInfo<'info>,
+    payer: &AccountInfo<'info>,
+    vault: &AccountInfo<'info>,
+) -> Result<()> {
+    let have = vault.lamports();
+    if have < VAULT_RENT_RESERVE {
+        system_program::transfer(
+            CpiContext::new(system.clone(), SysTransfer { from: payer.clone(), to: vault.clone() }),
+            VAULT_RENT_RESERVE - have,
+        )?;
+    }
+    Ok(())
+}
+
 fn haircut_bps(slippage: u16, fee_allowance: u16) -> u64 {
     BPS.saturating_sub(slippage as u64).saturating_sub(fee_allowance as u64)
 }
@@ -137,6 +196,10 @@ pub mod coded_router {
         g.paused = false;
         g.allowed = Vec::new();
         g.bump = ctx.bumps.global;
+        g.protocol_mint = Pubkey::default();
+        g.protocol_router = Pubkey::default();
+        g.protocol_vault = Pubkey::default();
+        g.protocol_fee_bps = 0;
         Ok(())
     }
 
@@ -199,47 +262,40 @@ pub mod coded_router {
             &token_program,
         )?;
 
-        // Fund the vault's rent reserve so it can hold and sign for lamports.
-        let vault_lamports = ctx.accounts.vault.lamports();
-        if vault_lamports < VAULT_RENT_RESERVE {
-            system_program::transfer(
-                CpiContext::new(
-                    ctx.accounts.system_program.to_account_info(),
-                    SysTransfer {
-                        from: ctx.accounts.authority.to_account_info(),
-                        to: ctx.accounts.vault.to_account_info(),
-                    },
-                ),
-                VAULT_RENT_RESERVE - vault_lamports,
-            )?;
-        }
+        fund_vault(
+            &ctx.accounts.system_program.to_account_info(),
+            &ctx.accounts.authority.to_account_info(),
+            &ctx.accounts.vault.to_account_info(),
+        )?;
+
+        // Every router created while the protocol fee is on owes it, and
+        // can't route anything until verify_protocol_share passes.
+        let (fee_bps, fee_vault) = {
+            let g = &ctx.accounts.global;
+            if g.protocol_vault != Pubkey::default() && g.protocol_fee_bps > 0 {
+                (g.protocol_fee_bps, g.protocol_vault)
+            } else {
+                (0, Pubkey::default())
+            }
+        };
 
         let t = now()?;
+        let authority = ctx.accounts.authority.key();
+        let (bump, vault_bump) = (ctx.bumps.router, ctx.bumps.vault);
         let r = &mut ctx.accounts.router;
-        r.mint = mint_key;
-        r.authority = ctx.accounts.authority.key();
-        r.token_program = token_program;
-        r.config = config;
-        r.pending = None;
-        r.pending_eta = 0;
-        r.holders_bucket = 0;
-        r.lp_bucket = 0;
-        r.burn_bucket = 0;
-        r.reserved_claims = 0;
-        r.lp_token_inventory = 0;
-        r.lp_mint = Pubkey::default();
-        r.lp_locked_amount = 0;
-        r.lp_locked_until = 0;
-        r.ref_price_q32 = reserves.price_q32()?;
-        r.last_observe_ts = t;
-        r.last_inflow_ts = 0;
-        r.next_epoch = 0;
-        r.total_inflow = 0;
-        r.total_tokens_burned = 0;
-        r.total_lp_quote_added = 0;
-        r.total_paid_holders = 0;
-        r.bump = ctx.bumps.router;
-        r.vault_bump = ctx.bumps.vault;
+        fill_router(
+            r,
+            mint_key,
+            authority,
+            token_program,
+            config,
+            reserves.price_q32()?,
+            t,
+            bump,
+            vault_bump,
+            fee_bps,
+            fee_vault,
+        );
 
         emit!(RouterCreated {
             router: r.key(),
@@ -248,6 +304,97 @@ pub mod coded_router {
             vault: ctx.accounts.vault.key(),
             config,
         });
+        Ok(())
+    }
+
+    // ---------------------------------------------------------- protocol
+
+    /// Creates the router for the protocol token. Configure it 100% burn.
+    /// It owes no protocol fee itself.
+    pub fn init_protocol_router(
+        ctx: Context<InitProtocolRouter>,
+        config: RouteConfig,
+        venue: u8,
+    ) -> Result<()> {
+        config.validate()?;
+        let mint_key = ctx.accounts.mint.key();
+        let token_program = *ctx.accounts.mint.to_account_info().owner;
+        let reserves = venue::read_reserves(
+            venue,
+            &ctx.accounts.venue_a,
+            &ctx.accounts.venue_b,
+            &ctx.accounts.venue_c,
+            &mint_key,
+            &token_program,
+        )?;
+        fund_vault(
+            &ctx.accounts.system_program.to_account_info(),
+            &ctx.accounts.admin.to_account_info(),
+            &ctx.accounts.vault.to_account_info(),
+        )?;
+        let t = now()?;
+        let admin = ctx.accounts.admin.key();
+        let (bump, vault_bump) = (ctx.bumps.router, ctx.bumps.vault);
+        let r = &mut ctx.accounts.router;
+        fill_router(
+            r,
+            mint_key,
+            admin,
+            token_program,
+            config,
+            reserves.price_q32()?,
+            t,
+            bump,
+            vault_bump,
+            0,
+            Pubkey::default(),
+        );
+        emit!(RouterCreated {
+            router: r.key(),
+            mint: mint_key,
+            authority: admin,
+            vault: ctx.accounts.vault.key(),
+            config,
+        });
+        Ok(())
+    }
+
+    /// Points the protocol fee at the protocol router and sets its size.
+    /// Applies to routers created afterwards; existing ones keep the terms
+    /// they were created with. `fee_bps` = 0 turns the fee off.
+    pub fn set_protocol(ctx: Context<SetProtocol>, fee_bps: u16) -> Result<()> {
+        require!(fee_bps <= MAX_PROTOCOL_FEE_BPS, CodedError::BadParam);
+        let router_key = ctx.accounts.protocol_router.key();
+        let (vault, _) =
+            Pubkey::find_program_address(&[VAULT_SEED, router_key.as_ref()], &crate::ID);
+        let g = &mut ctx.accounts.global;
+        g.protocol_mint = ctx.accounts.protocol_router.mint;
+        g.protocol_router = router_key;
+        g.protocol_vault = vault;
+        g.protocol_fee_bps = fee_bps;
+        emit!(ProtocolSet { mint: g.protocol_mint, router: router_key, vault, fee_bps });
+        Ok(())
+    }
+
+    /// Permissionless. Reads the coin's locked pump.fun fee split and marks
+    /// the router verified if it pays the protocol vault at least its share.
+    pub fn verify_protocol_share(ctx: Context<VerifyProtocolShare>) -> Result<()> {
+        let r = &mut ctx.accounts.router;
+        require!(!r.protocol_verified && r.protocol_fee_bps > 0, CodedError::ProtocolNotRequired);
+
+        let sc = &ctx.accounts.sharing_config;
+        let (expected, _) = Pubkey::find_program_address(
+            &[PUMP_SHARING_CONFIG_SEED, r.mint.as_ref()],
+            &PUMP_FEE_PROGRAM_ID,
+        );
+        require_keys_eq!(*sc.key, expected, CodedError::BadSharingConfig);
+        require_keys_eq!(*sc.owner, PUMP_FEE_PROGRAM_ID, CodedError::BadSharingConfig);
+
+        let paid = sharing::paid_to(&sc.try_borrow_data()?, &r.mint, &r.protocol_vault)?;
+        require!(paid >= r.protocol_fee_bps as u32, CodedError::ProtocolShareMissing);
+
+        r.protocol_verified = true;
+        emit!(ProtocolVerified { router: r.key(), share_bps: paid as u16 });
         Ok(())
     }
 
@@ -335,6 +482,7 @@ pub mod coded_router {
         let t = now()?;
         {
             let r = &ctx.accounts.router;
+            require!(r.protocol_verified, CodedError::ProtocolNotVerified);
             require!(
                 t >= r.last_inflow_ts + r.config.claim_interval_secs,
                 CodedError::TooSoon
@@ -792,6 +940,20 @@ pub struct RouterCreated {
     pub authority: Pubkey,
     pub vault: Pubkey,
     pub config: RouteConfig,
+}
+
+#[event]
+pub struct ProtocolSet {
+    pub mint: Pubkey,
+    pub router: Pubkey,
+    pub vault: Pubkey,
+    pub fee_bps: u16,
+}
+
+#[event]
+pub struct ProtocolVerified {
+    pub router: Pubkey,
+    pub share_bps: u16,
 }
 
 #[event]
