@@ -1,0 +1,15 @@
+{
+  "router": "GwHQvdHvDPUhCB488awvq39C1oCsEZtNU8aFeE4hqxpN",
+  "index": 0,
+  "epoch": "5dqBYuatu9Yi22TMR73KaWBcWt8ScPupuUqvRwx9iyd5",
+  "root": "61c79ac220411e7f7bd3f6e65c2f8cab99939b156843ccbb63504e0e9d8bbb33",
+  "total": "457142405",
+  "postedAt": 1791259268,
+  "entries": [
+    {
+      "claimant": "AP6D67bj3ij4EgD7NPg18cQzrtEvuNKMJad4HBgU6r9P",
+      "amount": "457142405",
+      "proof": []
+    }
+  ]
+}

@@ -7,7 +7,7 @@ import {
 
 /** Replace after `anchor keys sync`. */
 export const CODED_PROGRAM_ID = new PublicKey(
-  process.env.CODED_PROGRAM_ID ?? "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS",
+  process.env.CODED_PROGRAM_ID ?? "GVtfTnNDsgcFB89yvS3E98iwWqKeRAx2XHfPQ5GVgZU4",
 );
 
 export const BPS = 10_000;

@@ -125,7 +125,23 @@ pub fn read_reserves(
     }
 }
 
-/// Spot must be within `max_bps` of the reference price.
+/// For buys: spot must not be more than `max_bps` ABOVE the reference.
+/// A sandwich has to push the price up before our buy; a price below the
+/// reference just means the buyback gets more tokens.
+pub fn check_not_above(reference: u128, spot: u128, max_bps: u16) -> Result<()> {
+    require!(reference > 0, CodedError::NoReferencePrice);
+    if spot <= reference {
+        return Ok(());
+    }
+    let limit = reference
+        .checked_mul(max_bps as u128)
+        .ok_or(CodedError::MathOverflow)?
+        / BPS as u128;
+    require!(spot - reference <= limit, CodedError::PriceDeviation);
+    Ok(())
+}
+
+/// For deposits: spot must be within `max_bps` of the reference either way.
 pub fn check_deviation(reference: u128, spot: u128, max_bps: u16) -> Result<()> {
     require!(reference > 0, CodedError::NoReferencePrice);
     let diff = if spot > reference { spot - reference } else { reference - spot };
@@ -150,5 +166,9 @@ mod tests {
         assert!(check_deviation(100, 104, 500).is_ok());
         assert!(check_deviation(100, 106, 500).is_err());
         assert!(check_deviation(0, 1, 500).is_err());
+        // buys: any dip is fine, spikes above the limit are not
+        assert!(check_not_above(100, 50, 500).is_ok());
+        assert!(check_not_above(100, 105, 500).is_ok());
+        assert!(check_not_above(100, 106, 500).is_err());
     }
 }

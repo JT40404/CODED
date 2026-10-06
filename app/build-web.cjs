@@ -5,7 +5,7 @@ const { existsSync, copyFileSync } = require("node:fs");
 const { join } = require("node:path");
 
 const root = join(__dirname, "..");
-const programId = process.env.CODED_PROGRAM_ID || "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS";
+const programId = process.env.CODED_PROGRAM_ID || "GVtfTnNDsgcFB89yvS3E98iwWqKeRAx2XHfPQ5GVgZU4";
 
 build({
   entryPoints: [join(__dirname, "src/web-entry.ts")],

@@ -5,11 +5,14 @@ anchor_version = "0.31.1"
 resolution = true
 skip-lint = false
 
-[programs.mainnet]
-coded_router = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
-
 [programs.localnet]
 coded_router = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+
+[programs.mainnet]
+coded_router = "GVtfTnNDsgcFB89yvS3E98iwWqKeRAx2XHfPQ5GVgZU4"
+
+[registry]
+url = "https://api.apr.dev"
 
 [provider]
 cluster = "localnet"

@@ -36,7 +36,7 @@ use contexts::*;
 use errors::CodedError;
 use state::*;
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+declare_id!("GVtfTnNDsgcFB89yvS3E98iwWqKeRAx2XHfPQ5GVgZU4");
 
 // ============================================================== helpers
 
@@ -566,7 +566,7 @@ pub mod coded_router {
             &mint_key,
             &token_program,
         )?;
-        venue::check_deviation(ref_price, res.price_q32()?, slippage)?;
+        venue::check_not_above(ref_price, res.price_q32()?, slippage)?;
         require!(
             amount_in <= mul_bps(res.quote, slippage as u64)?,
             CodedError::TradeTooLarge

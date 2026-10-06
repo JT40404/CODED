@@ -17,6 +17,8 @@ import BN from "bn.js";
 import { AnchorProvider, Program, Wallet, type Idl } from "@coral-xyz/anchor";
 import {
   type AccountMeta,
+  AddressLookupTableAccount,
+  AddressLookupTableProgram,
   ComputeBudgetProgram,
   Connection,
   Keypair,
@@ -93,29 +95,132 @@ const amm = new OnlinePumpAmmSdk(connection);
 const log = (...a: unknown[]) => console.log(new Date().toISOString(), ...a);
 const big = (v: BN | number | bigint) => BigInt(v.toString());
 
-// ------------------------------------------------------------------ tx helpers
-async function send(ixs: TransactionInstruction[], label: string, cu = 600_000): Promise<string | null> {
+// ------------------------------------------------------------------ lookup tables
+// CODED instructions carry pump.fun's whole instruction as remaining
+// accounts, which overflows Solana's 1232-byte limit. The crank keeps its
+// own address lookup tables so each account costs 1 byte instead of 32.
+// Table addresses are saved in DATA_DIR/alt.json.
+const ALT_FILE = join(DATA_DIR, "alt.json");
+const ALT_MAX = 256;
+let tables: AddressLookupTableAccount[] = [];
+
+async function rawSend(ixs: TransactionInstruction[], label: string): Promise<string> {
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
-  const msg = new TransactionMessage({
-    payerKey: payer.publicKey,
-    recentBlockhash: blockhash,
-    instructions: [
-      ComputeBudgetProgram.setComputeUnitLimit({ units: cu }),
-      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: PRIORITY }),
-      ...ixs,
-    ],
-  }).compileToV0Message();
-  const tx = new VersionedTransaction(msg);
+  const tx = new VersionedTransaction(
+    new TransactionMessage({ payerKey: payer.publicKey, recentBlockhash: blockhash, instructions: ixs }).compileToV0Message(),
+  );
   tx.sign([payer]);
-  const sim = await connection.simulateTransaction(tx, { sigVerify: false });
-  if (sim.value.err) {
-    log(`skip ${label}:`, JSON.stringify(sim.value.err), sim.value.logs?.slice(-4).join(" | "));
-    return null;
-  }
-  const sig = await connection.sendTransaction(tx, { skipPreflight: true, maxRetries: 3 });
+  const sig = await connection.sendTransaction(tx, { maxRetries: 3 });
   await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed");
   log(`${label}: ${sig}`);
   return sig;
+}
+
+async function waitSlots(n: number) {
+  const start = await connection.getSlot("confirmed");
+  while ((await connection.getSlot("confirmed")) < start + n) await new Promise((r) => setTimeout(r, 400));
+}
+
+async function loadTables() {
+  if (tables.length || !existsSync(ALT_FILE)) return;
+  const addrs: string[] = JSON.parse(readFileSync(ALT_FILE, "utf8"));
+  for (const a of addrs) {
+    const t = (await connection.getAddressLookupTable(new PublicKey(a))).value;
+    if (t) tables.push(t);
+  }
+}
+
+function saveTables() {
+  mkdirSync(DATA_DIR, { recursive: true });
+  writeFileSync(ALT_FILE, JSON.stringify(tables.map((t) => t.key.toBase58()), null, 2));
+}
+
+async function newTable(): Promise<AddressLookupTableAccount> {
+  const recentSlot = await connection.getSlot("finalized");
+  const [ix, key] = AddressLookupTableProgram.createLookupTable({
+    authority: payer.publicKey,
+    payer: payer.publicKey,
+    recentSlot,
+  });
+  await rawSend([ix], "create-lookup-table");
+  await waitSlots(1);
+  const t = (await connection.getAddressLookupTable(key)).value;
+  if (!t) throw new Error("lookup table not found after creation");
+  tables.push(t);
+  saveTables();
+  return t;
+}
+
+/** Makes sure every non-signer account in `ixs` is in one of our tables. */
+async function ensureTables(ixs: TransactionInstruction[]) {
+  await loadTables();
+  const known = new Set(tables.flatMap((t) => t.state.addresses.map((a) => a.toBase58())));
+  const wanted = new Set<string>();
+  for (const ix of ixs) {
+    wanted.add(ix.programId.toBase58());
+    for (const k of ix.keys) if (!k.isSigner) wanted.add(k.pubkey.toBase58());
+  }
+  wanted.delete(payer.publicKey.toBase58());
+  const missing = [...wanted].filter((k) => !known.has(k)).map((k) => new PublicKey(k));
+  if (!missing.length) return;
+
+  let i = 0;
+  while (i < missing.length) {
+    let t = tables[tables.length - 1];
+    if (!t || t.state.addresses.length >= ALT_MAX) t = await newTable();
+    const room = ALT_MAX - t.state.addresses.length;
+    const chunk = missing.slice(i, i + Math.min(20, room));
+    await rawSend(
+      [AddressLookupTableProgram.extendLookupTable({
+        lookupTable: t.key,
+        authority: payer.publicKey,
+        payer: payer.publicKey,
+        addresses: chunk,
+      })],
+      `extend-lookup-table +${chunk.length}`,
+    );
+    i += chunk.length;
+    const fresh = (await connection.getAddressLookupTable(t.key)).value;
+    if (fresh) tables[tables.length - 1] = fresh;
+  }
+  // New entries become usable one slot after they're added.
+  await waitSlots(1);
+  for (let j = 0; j < tables.length; j++) {
+    const fresh = (await connection.getAddressLookupTable(tables[j].key)).value;
+    if (fresh) tables[j] = fresh;
+  }
+}
+
+// ------------------------------------------------------------------ tx helpers
+async function send(ixs: TransactionInstruction[], label: string, cu = 600_000): Promise<string | null> {
+  try {
+    await ensureTables(ixs);
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+    const msg = new TransactionMessage({
+      payerKey: payer.publicKey,
+      recentBlockhash: blockhash,
+      instructions: [
+        ComputeBudgetProgram.setComputeUnitLimit({ units: cu }),
+        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: PRIORITY }),
+        ...ixs,
+      ],
+    }).compileToV0Message(tables);
+    const tx = new VersionedTransaction(msg);
+    tx.sign([payer]);
+    const size = tx.serialize().length;
+    const sim = await connection.simulateTransaction(tx, { sigVerify: false });
+    if (sim.value.err) {
+      log(`skip ${label}:`, JSON.stringify(sim.value.err), "\n    " + (sim.value.logs ?? []).slice(-8).join("\n    "));
+      return null;
+    }
+    const sig = await connection.sendTransaction(tx, { skipPreflight: true, maxRetries: 3 });
+    await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed");
+    log(`${label}: ${sig} (${size} bytes)`);
+    return sig;
+  } catch (e) {
+    log(`skip ${label}: ${(e as Error).message}`);
+    return null;
+  }
 }
 
 /** [program, ...accounts] with the vault flagged non-signer at the top level. */
@@ -537,20 +642,25 @@ async function stepHolders(c: Ctx) {
 }
 
 // ------------------------------------------------------------------ loop
-async function tick() {
+/** Runs every step once for one router. Exported for fork-test.ts. */
+export async function processRouter(publicKey: PublicKey): Promise<void> {
+  let c = await loadCtx(publicKey);
+  if (!(await stepVerify(c))) return; // split doesn't pay the protocol share
+  c = await loadCtx(publicKey);
+  await stepClaim(c);
+  await stepObserve(c);
+  c = await loadCtx(publicKey);
+  await stepBurn(c);
+  await stepLiquidity(c);
+  c = await loadCtx(publicKey);
+  await stepHolders(c);
+}
+
+export async function tick() {
   const routers: { publicKey: PublicKey }[] = await accounts.router.all();
   for (const { publicKey } of routers) {
     try {
-      let c = await loadCtx(publicKey);
-      if (!(await stepVerify(c))) continue; // split doesn't pay the protocol share
-      c = await loadCtx(publicKey);
-      await stepClaim(c);
-      await stepObserve(c);
-      c = await loadCtx(publicKey);
-      await stepBurn(c);
-      await stepLiquidity(c);
-      c = await loadCtx(publicKey);
-      await stepHolders(c);
+      await processRouter(publicKey);
     } catch (e) {
       log(`router ${publicKey.toBase58()} error:`, (e as Error).message);
     }
@@ -565,4 +675,4 @@ async function main() {
   }
 }
 
-main();
+if (require.main === module) main();
